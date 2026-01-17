@@ -36,6 +36,9 @@ interface SettingsState {
   // Image Generation
   imageProvider: 'openai' | 'fal' | 'stability' | 'replicate';
 
+  // Setup
+  setupCompleted: boolean;
+
   // Actions
   setDisplayMode: (mode: 'control' | 'integrated') => void;
   setTheme: (theme: ThemeName) => void;
@@ -50,6 +53,7 @@ interface SettingsState {
   setApiKey: (provider: keyof SettingsState['apiKeys'], key: string) => void;
   clearApiKey: (provider: keyof SettingsState['apiKeys']) => void;
   setImageProvider: (provider: SettingsState['imageProvider']) => void;
+  setSetupCompleted: (completed: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -74,6 +78,7 @@ export const useSettingsStore = create<SettingsState>()(
         replicate: '',
       },
       imageProvider: 'fal',
+      setupCompleted: false,
 
       // Actions
       setDisplayMode: (mode) => set({ displayMode: mode }),
@@ -109,6 +114,8 @@ export const useSettingsStore = create<SettingsState>()(
         })),
 
       setImageProvider: (provider) => set({ imageProvider: provider }),
+
+      setSetupCompleted: (completed) => set({ setupCompleted: completed }),
     }),
     {
       name: 'koe-settings',

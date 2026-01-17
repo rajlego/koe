@@ -1,0 +1,337 @@
+.setup-wizard-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.setup-wizard {
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 32px;
+  overflow-y: auto;
+}
+
+.wizard-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.wizard-header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--accent-color);
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.wizard-header p {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* Progress indicator */
+.wizard-progress {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  max-width: 80px;
+}
+
+.progress-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.progress-step.active .progress-dot {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  background: var(--bg-highlight);
+}
+
+.progress-step.completed .progress-dot,
+.progress-step.configured .progress-dot {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--bg-primary);
+}
+
+.progress-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.progress-step.active .progress-label {
+  color: var(--text-primary);
+}
+
+/* Content area */
+.wizard-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.step-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.step-header p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.required-badge {
+  font-size: 10px;
+  padding: 3px 8px;
+  background: var(--accent-color);
+  color: var(--bg-primary);
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.optional-badge {
+  font-size: 10px;
+  padding: 3px 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  border-radius: 4px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.help-text {
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border-left: 3px solid var(--accent-color);
+}
+
+.help-text p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.get-key-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--accent-color);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.get-key-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-color);
+}
+
+.get-key-btn svg {
+  opacity: 0.8;
+}
+
+.key-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.key-input-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.key-input-wrapper {
+  position: relative;
+  display: flex;
+}
+
+.key-input {
+  flex: 1;
+  padding: 14px 44px 14px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: monospace;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease;
+}
+
+.key-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.key-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.toggle-visibility {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.toggle-visibility:hover {
+  color: var(--text-primary);
+  background: var(--bg-highlight);
+}
+
+.already-configured {
+  font-size: 12px;
+  color: var(--accent-color);
+  margin: 0;
+}
+
+/* Footer */
+.wizard-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-color);
+}
+
+.footer-left,
+.footer-right {
+  display: flex;
+  gap: 12px;
+}
+
+.back-btn {
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.back-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.skip-btn {
+  padding: 10px 20px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.skip-btn:hover {
+  background: var(--bg-highlight);
+  color: var(--text-primary);
+}
+
+.next-btn {
+  padding: 10px 24px;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 6px;
+  color: var(--bg-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.next-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.next-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Skip all link */
+.skip-all {
+  text-align: center;
+  margin-top: 24px;
+}
+
+.skip-all button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.skip-all button:hover {
+  color: var(--text-secondary);
+}

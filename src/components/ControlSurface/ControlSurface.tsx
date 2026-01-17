@@ -3,6 +3,7 @@ import { useVoice } from '../../hooks/useVoice';
 import { useKeyboard } from '../../hooks/useKeyboard';
 import { useLLM } from '../../services/llm';
 import { getAllThoughts, onThoughtsChange } from '../../sync';
+import { useSettingsStore, getApiKey } from '../../store/settingsStore';
 import type { Thought } from '../../models/types';
 import VoiceIndicator from '../common/VoiceIndicator';
 import TranscriptDisplay from '../common/TranscriptDisplay';
@@ -15,10 +16,12 @@ const ThoughtHistory = lazy(() => import('../common/ThoughtHistory'));
 const Settings = lazy(() => import('../Settings'));
 const CharacterSelector = lazy(() => import('../CharacterSelector/CharacterSelector'));
 const ConversationView = lazy(() => import('../ConversationView/ConversationView'));
+const SetupWizard = lazy(() => import('../SetupWizard'));
 
 export default function ControlSurface() {
   const { voiceState, lastTranscript, isListening, isProcessing } = useVoice();
   const { processTranscript, isProcessing: llmProcessing, lastResponse, streamingText } = useLLM();
+  const { setupCompleted, setSetupCompleted } = useSettingsStore();
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [recentActions, setRecentActions] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
@@ -26,6 +29,13 @@ export default function ControlSurface() {
   const [showCharacters, setShowCharacters] = useState(false);
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Show setup wizard if not completed and no Anthropic key
+  const showSetupWizard = !setupCompleted && !getApiKey('anthropic');
+
+  const handleSetupComplete = useCallback(() => {
+    setSetupCompleted(true);
+  }, [setSetupCompleted]);
 
   // Filter thoughts based on search query (searches content, type, and tags)
   const filteredThoughts = useMemo(() => {
@@ -95,6 +105,15 @@ export default function ControlSurface() {
           characterId={activeCharacterId}
           onClose={() => setActiveCharacterId(null)}
         />
+      </Suspense>
+    );
+  }
+
+  // Show setup wizard on first launch
+  if (showSetupWizard) {
+    return (
+      <Suspense fallback={<div className="loading">Loading...</div>}>
+        <SetupWizard onComplete={handleSetupComplete} />
       </Suspense>
     );
   }
