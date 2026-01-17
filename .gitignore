@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+target/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+test-results/
+playwright-report/
+
+# Tauri
+src-tauri/target/
+src-tauri/tauri.conf.json.bak
+
+# Dev
+.dev-port

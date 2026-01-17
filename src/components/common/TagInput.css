@@ -1,0 +1,80 @@
+.tag-input-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  min-height: 32px;
+  align-items: center;
+}
+
+.tag-input-container:focus-within {
+  border-color: var(--accent-color);
+}
+
+.tag-input-container.read-only {
+  background: transparent;
+  border: none;
+  padding: 0;
+  min-height: auto;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--bg-highlight);
+  border-radius: 12px;
+  font-size: 11px;
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
+.tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.tag-remove:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tag-input {
+  flex: 1;
+  min-width: 80px;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.tag-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Tag list (display only) */
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tag-list .tag {
+  cursor: default;
+}

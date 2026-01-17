@@ -1,0 +1,123 @@
+.thought-window {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary);
+}
+
+.thought-window.main-window {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.thought-window.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.thought-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.thought-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.thought-display {
+  cursor: text;
+  min-height: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.thought-display:hover {
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  margin: -8px;
+  padding: 8px;
+}
+
+.thought-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.thought-list li {
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  border-left: 3px solid var(--accent-color);
+}
+
+.thought-editor {
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  resize: none;
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-color);
+  border-radius: 4px;
+  padding: 12px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1.6;
+}
+
+.thought-editor:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.thought-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-cancel,
+.btn-save {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.btn-cancel {
+  color: var(--text-secondary);
+}
+
+.btn-cancel:hover {
+  background: var(--bg-tertiary);
+}
+
+.btn-save {
+  background: var(--accent-color);
+  color: var(--bg-primary);
+}
+
+.btn-save:hover {
+  opacity: 0.9;
+}
+
+/* Tags */
+.thought-tags {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.thought-tags-edit {
+  margin-top: 12px;
+}
