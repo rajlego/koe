@@ -19,11 +19,13 @@ import type {
   GeneratedImage,
   ImageCacheEntry,
 } from '../models/types';
+import { getApiKey, useSettingsStore } from '../store/settingsStore';
 
-// Environment variables for API keys
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
-const STABILITY_API_KEY = import.meta.env.VITE_STABILITY_API_KEY;
-const REPLICATE_API_KEY = import.meta.env.VITE_REPLICATE_API_KEY;
+// Helper functions to get API keys (checks store first, then env vars)
+const getOpenAIKey = () => getApiKey('openai');
+const getStabilityKey = () => getApiKey('stability');
+const getReplicateKey = () => getApiKey('replicate');
+const getFalKey = () => getApiKey('fal');
 
 // Default configuration
 const DEFAULT_CONFIG: ImageGenerationConfig = {
@@ -196,8 +198,9 @@ async function generateWithOpenAI(
     quality?: ImageQuality;
   } = {}
 ): Promise<GeneratedImage> {
-  if (!OPENAI_API_KEY) {
-    throw new Error('OpenAI API key not configured. Set VITE_OPENAI_API_KEY in your .env file.');
+  const apiKey = getOpenAIKey();
+  if (!apiKey) {
+    throw new Error('OpenAI API key not configured. Set it in Settings or VITE_OPENAI_API_KEY in your .env file.');
   }
 
   const model = options.model || 'dall-e-3';
@@ -214,7 +217,7 @@ async function generateWithOpenAI(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
@@ -257,8 +260,9 @@ async function generateWithStability(
     size?: ImageSize;
   } = {}
 ): Promise<GeneratedImage> {
-  if (!STABILITY_API_KEY) {
-    throw new Error('Stability API key not configured. Set VITE_STABILITY_API_KEY in your .env file.');
+  const apiKey = getStabilityKey();
+  if (!apiKey) {
+    throw new Error('Stability API key not configured. Set it in Settings or VITE_STABILITY_API_KEY in your .env file.');
   }
 
   const model = options.model || 'stable-diffusion-xl-1024-v1-0';
@@ -274,7 +278,7 @@ async function generateWithStability(
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Authorization': `Bearer ${STABILITY_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         text_prompts: [{ text: prompt, weight: 1 }],
@@ -318,8 +322,9 @@ async function generateWithReplicate(
     size?: ImageSize;
   } = {}
 ): Promise<GeneratedImage> {
-  if (!REPLICATE_API_KEY) {
-    throw new Error('Replicate API key not configured. Set VITE_REPLICATE_API_KEY in your .env file.');
+  const apiKey = getReplicateKey();
+  if (!apiKey) {
+    throw new Error('Replicate API key not configured. Set it in Settings or VITE_REPLICATE_API_KEY in your .env file.');
   }
 
   // Default to SDXL model
@@ -334,7 +339,7 @@ async function generateWithReplicate(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Token ${REPLICATE_API_KEY}`,
+      'Authorization': `Token ${apiKey}`,
     },
     body: JSON.stringify({
       version: model.includes(':') ? model.split(':')[1] : model,
@@ -363,7 +368,7 @@ async function generateWithReplicate(
   while (elapsed < maxWait) {
     const statusResponse = await fetch(prediction.urls.get, {
       headers: {
-        'Authorization': `Token ${REPLICATE_API_KEY}`,
+        'Authorization': `Token ${apiKey}`,
       },
     });
 
@@ -402,6 +407,80 @@ async function generateWithReplicate(
   throw new Error('Image generation timed out');
 }
 
+/**
+ * Generate image using FAL.ai API
+ *
+ * FAL.ai offers fast, cheap image generation (~$0.01-0.02/image).
+ * Uses Flux Schnell by default for sub-second generation.
+ */
+async function generateWithFal(
+  prompt: string,
+  options: {
+    model?: string;
+    size?: ImageSize;
+  } = {}
+): Promise<GeneratedImage> {
+  const apiKey = getFalKey();
+  if (!apiKey) {
+    throw new Error('FAL API key not configured. Set it in Settings or VITE_FAL_API_KEY in your .env file.');
+  }
+
+  // Default to Flux Schnell (fastest, cheapest)
+  // Other options: 'fal-ai/flux/dev', 'fal-ai/flux-pro'
+  const model = options.model || 'fal-ai/flux/schnell';
+
+  // Parse size to width/height
+  const size = options.size || '1024x1024';
+  const [width, height] = size.split('x').map(Number);
+
+  const response = await fetch(`https://fal.run/${model}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Key ${apiKey}`,
+    },
+    body: JSON.stringify({
+      prompt,
+      image_size: {
+        width,
+        height,
+      },
+      num_inference_steps: 4, // Schnell uses fewer steps for speed
+      num_images: 1,
+      enable_safety_checker: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(
+      error.detail || error.message || `FAL API error: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data = await response.json();
+
+  // FAL returns images array with url property
+  const imageUrl = data.images?.[0]?.url;
+  if (!imageUrl) {
+    throw new Error('FAL API did not return an image URL');
+  }
+
+  // Convert URL to base64
+  const base64 = await urlToBase64(imageUrl);
+
+  return {
+    id: crypto.randomUUID(),
+    prompt,
+    url: imageUrl,
+    base64,
+    provider: 'fal',
+    model,
+    createdAt: new Date().toISOString(),
+    cached: false,
+  };
+}
+
 // ============================================================================
 // Public API
 // ============================================================================
@@ -424,13 +503,17 @@ export function getImageGenConfig(): ImageGenerationConfig {
  * Check if image generation is available (API key configured)
  */
 export function isImageGenAvailable(): boolean {
-  switch (currentConfig.provider) {
+  // Use provider from settings store
+  const provider = useSettingsStore.getState().imageProvider;
+  switch (provider) {
     case 'openai':
-      return Boolean(OPENAI_API_KEY);
+      return Boolean(getOpenAIKey());
     case 'stability':
-      return Boolean(STABILITY_API_KEY);
+      return Boolean(getStabilityKey());
     case 'replicate':
-      return Boolean(REPLICATE_API_KEY);
+      return Boolean(getReplicateKey());
+    case 'fal':
+      return Boolean(getFalKey());
     default:
       return false;
   }
@@ -443,7 +526,9 @@ export async function generateImage(
   prompt: string,
   options: Partial<ImageGenerationConfig> = {}
 ): Promise<GeneratedImage> {
-  const config = { ...currentConfig, ...options };
+  // Use provider from settings store if not specified in options
+  const storeProvider = useSettingsStore.getState().imageProvider;
+  const config = { ...currentConfig, provider: storeProvider, ...options };
   const promptHash = hashPrompt(prompt, config.provider, config.model || 'default');
 
   // Check cache first
@@ -472,6 +557,9 @@ export async function generateImage(
       break;
     case 'replicate':
       result = await generateWithReplicate(prompt, config);
+      break;
+    case 'fal':
+      result = await generateWithFal(prompt, config);
       break;
     default:
       throw new Error(`Unknown provider: ${config.provider}`);

@@ -78,7 +78,7 @@ export interface LLMTool {
 }
 
 // Image Generation Types
-export type ImageProvider = 'openai' | 'stability' | 'replicate';
+export type ImageProvider = 'openai' | 'stability' | 'replicate' | 'fal';
 
 export type ImageSize = '256x256' | '512x512' | '1024x1024' | '1024x1792' | '1792x1024';
 

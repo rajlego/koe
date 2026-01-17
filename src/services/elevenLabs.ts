@@ -1,6 +1,8 @@
 // ElevenLabs Text-to-Speech Service
 // Provides voice synthesis using ElevenLabs API with caching and streaming support
 
+import { getApiKey as getStoredApiKey } from '../store/settingsStore';
+
 const API_BASE = 'https://api.elevenlabs.io/v1';
 
 // Types
@@ -38,10 +40,11 @@ let currentAudio: HTMLAudioElement | null = null;
 let currentAbortController: AbortController | null = null;
 
 /**
- * Get the ElevenLabs API key from environment
+ * Get the ElevenLabs API key from settings (with env fallback)
  */
 function getApiKey(): string | undefined {
-  return import.meta.env.VITE_ELEVENLABS_API_KEY;
+  const key = getStoredApiKey('elevenLabs');
+  return key || undefined;
 }
 
 /**

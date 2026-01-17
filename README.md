@@ -2,15 +2,32 @@
 
 **Koe** (Japanese for "voice") is a voice-first thinking app. Speak to think through problems, and the app creates visual "thought windows" you can manipulate with voice commands.
 
+## Download
+
+Download the latest release for your platform:
+
+[![Download](https://img.shields.io/github/v/release/rajlego/koe?label=Download&style=for-the-badge)](https://github.com/rajlego/koe/releases/latest)
+
+| Platform | Download |
+|----------|----------|
+| macOS (Apple Silicon) | [Koe_x.x.x_aarch64.dmg](https://github.com/rajlego/koe/releases/latest) |
+| macOS (Intel) | [Koe_x.x.x_x64.dmg](https://github.com/rajlego/koe/releases/latest) |
+| Windows | [Koe_x.x.x_x64-setup.exe](https://github.com/rajlego/koe/releases/latest) |
+| Linux (Debian/Ubuntu) | [koe_x.x.x_amd64.deb](https://github.com/rajlego/koe/releases/latest) |
+| Linux (AppImage) | [koe_x.x.x_amd64.AppImage](https://github.com/rajlego/koe/releases/latest) |
+
 ## Features
 
 - **Voice-First Interface** - Speak naturally to capture and organize your thoughts
 - **Thought Windows** - Visual workspace with multiple draggable thought windows
+- **AI Characters** - Create and chat with AI characters with unique personalities and voices
 - **AI-Powered** - Claude API interprets your voice and manages your workspace
+- **Image Generation** - Generate character portraits with FAL.ai, DALL-E, or Stability AI
+- **Text-to-Speech** - Characters speak with ElevenLabs voices
 - **Offline-First** - Works without network; all data stored locally using CRDTs
 - **Cloud Sync** - Optional Firebase sync for multi-device access
 - **Keyboard Shortcuts** - Full keyboard navigation for power users
-- **Dark Theme** - Terminal-inspired aesthetic with monospace typography
+- **Multiple Themes** - Dark, light, midnight blue, forest green, sunset orange
 
 ## Screenshots
 
@@ -76,18 +93,28 @@ sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev
    VITE_OPENAI_API_KEY=your-openai-api-key
    ```
 
-## Environment Variables
+## API Keys
+
+**Option 1: In-App Settings (Recommended)**
+
+Open Settings (Cmd+,) and enter your API keys directly. Keys are stored locally on your device.
+
+**Option 2: Environment Variables**
+
+Create a `.env` file for development:
+```bash
+cp .env.example .env
+```
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `VITE_ANTHROPIC_API_KEY` | Yes | Anthropic API key for Claude LLM features |
-| `VITE_OPENAI_API_KEY` | Yes | OpenAI API key for Whisper voice transcription |
-| `VITE_FIREBASE_API_KEY` | No | Firebase API key for cloud sync |
-| `VITE_FIREBASE_AUTH_DOMAIN` | No | Firebase auth domain |
-| `VITE_FIREBASE_PROJECT_ID` | No | Firebase project ID |
-| `VITE_FIREBASE_STORAGE_BUCKET` | No | Firebase storage bucket |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | No | Firebase messaging sender ID |
-| `VITE_FIREBASE_APP_ID` | No | Firebase app ID |
+| `VITE_ANTHROPIC_API_KEY` | Yes | Anthropic API key for Claude LLM ([get key](https://console.anthropic.com/)) |
+| `VITE_OPENAI_API_KEY` | No | OpenAI for Whisper transcription & DALL-E ([get key](https://platform.openai.com/api-keys)) |
+| `VITE_FAL_API_KEY` | No | FAL.ai for fast, cheap image gen ([get key](https://fal.ai/dashboard/keys)) |
+| `VITE_ELEVENLABS_API_KEY` | No | ElevenLabs for character voices ([get key](https://elevenlabs.io/)) |
+| `VITE_STABILITY_API_KEY` | No | Stability AI for image generation |
+| `VITE_REPLICATE_API_KEY` | No | Replicate for various AI models |
+| `VITE_FIREBASE_*` | No | Firebase config for cloud sync |
 
 ## Development
 
@@ -200,6 +227,28 @@ The app uses Claude with these tools:
 - `close_window` - Close a window
 - `condense` - Summarize a thought
 - `generate_list` - Create a list from conversation
+
+## Releasing
+
+To create a new release:
+
+```bash
+# Bump version and create release
+npm run release patch   # 0.1.0 -> 0.1.1
+npm run release minor   # 0.1.0 -> 0.2.0
+npm run release major   # 0.1.0 -> 1.0.0
+npm run release 0.2.0   # Set specific version
+```
+
+This will:
+1. Update version in `package.json` and `tauri.conf.json`
+2. Create a git commit and tag
+3. Push to GitHub (triggers automatic build)
+
+GitHub Actions will then:
+- Build for macOS (Apple Silicon & Intel), Windows, and Linux
+- Create a GitHub Release with downloadable installers
+- Generate release notes from commit history
 
 ## Contributing
 

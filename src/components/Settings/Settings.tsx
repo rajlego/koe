@@ -3,6 +3,7 @@ import { useSettingsStore } from '../../store/settingsStore';
 import { exportToJSON, importFromJSON, exportThoughtsAsMarkdown } from '../../services/exportImport';
 import { themes, themeNames } from '../../styles/themes';
 import AuthSection from './AuthSection';
+import APIKeysSection from './APIKeysSection';
 import './Settings.css';
 
 interface SettingsProps {
@@ -134,6 +135,9 @@ export default function Settings({ onClose }: SettingsProps) {
               ))}
             </div>
           </section>
+
+          {/* API Keys & Image Provider */}
+          <APIKeysSection />
 
           {/* Voice */}
           <section className="settings-section">

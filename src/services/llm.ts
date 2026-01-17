@@ -11,10 +11,11 @@ import {
 import { useWindows } from '../hooks/useWindows';
 import { useWindowStore } from '../store/windowStore';
 import { sounds } from './sounds';
+import { getApiKey } from '../store/settingsStore';
 import type { Thought, PositionPreset } from '../models/types';
 
-// Environment variable for API key
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
+// Get Anthropic API key from store (with env fallback)
+const getAnthropicKey = () => getApiKey('anthropic');
 
 const SYSTEM_PROMPT = `You are Koe, a voice-first thinking assistant. The user speaks to you to think through problems, brainstorm, and organize their thoughts.
 
@@ -286,7 +287,8 @@ async function transformContent(
   instruction: string,
   maxTokens = 512
 ): Promise<string> {
-  if (!ANTHROPIC_API_KEY) {
+  const apiKey = getAnthropicKey();
+  if (!apiKey) {
     return content;
   }
 
@@ -295,7 +297,7 @@ async function transformContent(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
@@ -330,11 +332,12 @@ async function streamResponse(
   onStream: StreamCallback,
   signal: AbortSignal
 ): Promise<{ text: string; toolUse: Array<{ name: string; input: Record<string, unknown> }> }> {
+  const apiKey = getAnthropicKey();
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
+      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
@@ -708,7 +711,8 @@ export function useLLM() {
 
   const processTranscript = useCallback(
     async (transcript: string) => {
-      if (!ANTHROPIC_API_KEY) {
+      const apiKey = getAnthropicKey();
+      if (!apiKey) {
         console.log('No API key, creating thought directly');
         const id = crypto.randomUUID();
         addThought({

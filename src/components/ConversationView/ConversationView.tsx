@@ -2,14 +2,15 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useCharacterStore } from '../../store/characterStore';
 import { speak, stopSpeaking, isSpeaking, isElevenLabsConfigured } from '../../services/elevenLabs';
 import { generateCharacterPortrait, isImageGenAvailable } from '../../services/imageGen';
+import { getApiKey } from '../../store/settingsStore';
 // Character type is used via useCharacterStore
 import PhoenixWrightStyle from './PhoenixWrightStyle';
 import VisualNovelStyle from './VisualNovelStyle';
 import ChatBubbleStyle from './ChatBubbleStyle';
 import './ConversationView.css';
 
-// API key for Claude
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
+// Helper to get Anthropic API key from settings
+const getAnthropicKey = () => getApiKey('anthropic');
 
 export type ConversationDesign = 'phoenix-wright' | 'visual-novel' | 'chat-bubble';
 
@@ -116,6 +117,12 @@ export default function ConversationView({
       try {
         abortRef.current = new AbortController();
 
+        // Get API key
+        const apiKey = getAnthropicKey();
+        if (!apiKey) {
+          throw new Error('Anthropic API key not configured. Set it in Settings.');
+        }
+
         // Build conversation history for context
         const conversationHistory = messages.map((m) => ({
           role: m.role === 'user' ? 'user' : 'assistant',
@@ -126,7 +133,7 @@ export default function ConversationView({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-api-key': ANTHROPIC_API_KEY,
+            'x-api-key': apiKey,
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({

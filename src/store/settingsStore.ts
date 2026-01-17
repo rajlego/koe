@@ -23,6 +23,19 @@ interface SettingsState {
   restoreWindows: boolean;
   customPositions: CustomPosition[];
 
+  // API Keys (stored locally, user-provided)
+  apiKeys: {
+    anthropic: string;
+    openai: string;
+    elevenLabs: string;
+    fal: string;
+    stability: string;
+    replicate: string;
+  };
+
+  // Image Generation
+  imageProvider: 'openai' | 'fal' | 'stability' | 'replicate';
+
   // Actions
   setDisplayMode: (mode: 'control' | 'integrated') => void;
   setTheme: (theme: ThemeName) => void;
@@ -34,6 +47,9 @@ interface SettingsState {
   setRestoreWindows: (enabled: boolean) => void;
   addCustomPosition: (position: CustomPosition) => void;
   removeCustomPosition: (name: string) => void;
+  setApiKey: (provider: keyof SettingsState['apiKeys'], key: string) => void;
+  clearApiKey: (provider: keyof SettingsState['apiKeys']) => void;
+  setImageProvider: (provider: SettingsState['imageProvider']) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -49,6 +65,15 @@ export const useSettingsStore = create<SettingsState>()(
       soundsEnabled: true,
       restoreWindows: true,
       customPositions: [],
+      apiKeys: {
+        anthropic: '',
+        openai: '',
+        elevenLabs: '',
+        fal: '',
+        stability: '',
+        replicate: '',
+      },
+      imageProvider: 'fal',
 
       // Actions
       setDisplayMode: (mode) => set({ displayMode: mode }),
@@ -72,6 +97,18 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({
           customPositions: state.customPositions.filter((p) => p.name !== name),
         })),
+
+      setApiKey: (provider, key) =>
+        set((state) => ({
+          apiKeys: { ...state.apiKeys, [provider]: key },
+        })),
+
+      clearApiKey: (provider) =>
+        set((state) => ({
+          apiKeys: { ...state.apiKeys, [provider]: '' },
+        })),
+
+      setImageProvider: (provider) => set({ imageProvider: provider }),
     }),
     {
       name: 'koe-settings',
@@ -79,3 +116,21 @@ export const useSettingsStore = create<SettingsState>()(
     }
   )
 );
+
+// Helper to get API key (checks store first, then env vars)
+export function getApiKey(provider: keyof SettingsState['apiKeys']): string {
+  const storeKey = useSettingsStore.getState().apiKeys[provider];
+  if (storeKey) return storeKey;
+
+  // Fallback to environment variables
+  const envMap: Record<keyof SettingsState['apiKeys'], string> = {
+    anthropic: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
+    openai: import.meta.env.VITE_OPENAI_API_KEY || '',
+    elevenLabs: import.meta.env.VITE_ELEVENLABS_API_KEY || '',
+    fal: import.meta.env.VITE_FAL_API_KEY || '',
+    stability: import.meta.env.VITE_STABILITY_API_KEY || '',
+    replicate: import.meta.env.VITE_REPLICATE_API_KEY || '',
+  };
+
+  return envMap[provider];
+}
