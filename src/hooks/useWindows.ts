@@ -6,6 +6,118 @@ import { useSettingsStore } from '../store/settingsStore';
 import { saveWindowState, removeWindowState } from '../sync';
 import type { WindowState, PositionPreset, ViewMode } from '../models/types';
 
+// Snap configuration
+const SNAP_THRESHOLD = 20; // pixels within which snapping occurs
+const EDGE_PADDING = 10;   // padding from screen edges
+
+// Default screen dimensions (will be overridden if we can query actual size)
+const DEFAULT_SCREEN_WIDTH = 1920;
+const DEFAULT_SCREEN_HEIGHT = 1080;
+
+interface SnapZone {
+  x?: number;
+  y?: number;
+  type: 'edge' | 'center' | 'grid' | 'window';
+}
+
+/**
+ * Calculate snap zones for a given position
+ */
+function getSnapZones(
+  screenWidth: number,
+  screenHeight: number,
+  windowWidth: number,
+  windowHeight: number,
+  otherWindows: WindowState[]
+): SnapZone[] {
+  const zones: SnapZone[] = [];
+
+  // Screen edges
+  zones.push({ x: EDGE_PADDING, type: 'edge' }); // left edge
+  zones.push({ x: screenWidth - windowWidth - EDGE_PADDING, type: 'edge' }); // right edge
+  zones.push({ y: EDGE_PADDING, type: 'edge' }); // top edge
+  zones.push({ y: screenHeight - windowHeight - EDGE_PADDING, type: 'edge' }); // bottom edge
+
+  // Screen center
+  zones.push({ x: (screenWidth - windowWidth) / 2, type: 'center' });
+  zones.push({ y: (screenHeight - windowHeight) / 2, type: 'center' });
+
+  // Grid positions (thirds)
+  const thirdX = screenWidth / 3;
+  const thirdY = screenHeight / 3;
+  zones.push({ x: thirdX - windowWidth / 2, type: 'grid' });
+  zones.push({ x: 2 * thirdX - windowWidth / 2, type: 'grid' });
+  zones.push({ y: thirdY - windowHeight / 2, type: 'grid' });
+  zones.push({ y: 2 * thirdY - windowHeight / 2, type: 'grid' });
+
+  // Other windows - snap to their edges
+  for (const win of otherWindows) {
+    // Snap to left edge of other window
+    zones.push({ x: win.x, type: 'window' });
+    // Snap to right edge of other window
+    zones.push({ x: win.x + win.width, type: 'window' });
+    // Snap to right side next to other window (align right edges)
+    zones.push({ x: win.x + win.width - windowWidth, type: 'window' });
+    // Snap to top edge of other window
+    zones.push({ y: win.y, type: 'window' });
+    // Snap to bottom edge of other window
+    zones.push({ y: win.y + win.height, type: 'window' });
+    // Snap to bottom next to other window (align bottom edges)
+    zones.push({ y: win.y + win.height - windowHeight, type: 'window' });
+  }
+
+  return zones;
+}
+
+/**
+ * Apply snapping to a position
+ */
+function snapPosition(
+  x: number,
+  y: number,
+  windowWidth: number,
+  windowHeight: number,
+  otherWindows: WindowState[],
+  screenWidth: number = DEFAULT_SCREEN_WIDTH,
+  screenHeight: number = DEFAULT_SCREEN_HEIGHT
+): { x: number; y: number; snapped: boolean } {
+  const zones = getSnapZones(screenWidth, screenHeight, windowWidth, windowHeight, otherWindows);
+
+  let snappedX = x;
+  let snappedY = y;
+  let didSnap = false;
+
+  // Find closest snap zone for X
+  for (const zone of zones) {
+    if (zone.x !== undefined) {
+      const distance = Math.abs(x - zone.x);
+      if (distance < SNAP_THRESHOLD) {
+        snappedX = zone.x;
+        didSnap = true;
+        break; // Take first match
+      }
+    }
+  }
+
+  // Find closest snap zone for Y
+  for (const zone of zones) {
+    if (zone.y !== undefined) {
+      const distance = Math.abs(y - zone.y);
+      if (distance < SNAP_THRESHOLD) {
+        snappedY = zone.y;
+        didSnap = true;
+        break; // Take first match
+      }
+    }
+  }
+
+  // Ensure window stays on screen
+  snappedX = Math.max(0, Math.min(snappedX, screenWidth - windowWidth));
+  snappedY = Math.max(0, Math.min(snappedY, screenHeight - windowHeight));
+
+  return { x: snappedX, y: snappedY, snapped: didSnap };
+}
+
 // Get screen-relative position from preset
 function getPositionFromPreset(
   preset: PositionPreset,
@@ -13,8 +125,8 @@ function getPositionFromPreset(
   height: number
 ): { x: number; y: number } {
   // These are approximate - in practice you'd query actual screen size
-  const screenWidth = 1920;
-  const screenHeight = 1080;
+  const screenWidth = DEFAULT_SCREEN_WIDTH;
+  const screenHeight = DEFAULT_SCREEN_HEIGHT;
   const padding = 50;
 
   switch (preset) {
@@ -145,7 +257,11 @@ export function useWindows() {
   );
 
   const moveWindow = useCallback(
-    async (windowId: string, position: PositionPreset | { x: number; y: number }) => {
+    async (
+      windowId: string,
+      position: PositionPreset | { x: number; y: number },
+      options?: { enableSnap?: boolean }
+    ) => {
       try {
         const webview = await WebviewWindow.getByLabel(windowId);
         if (!webview) return;
@@ -164,6 +280,23 @@ export function useWindows() {
           newPosition = position;
         }
 
+        // Apply snapping if enabled (default: true for coordinate positions)
+        const shouldSnap = options?.enableSnap !== false && typeof position !== 'string';
+        if (shouldSnap) {
+          // Get other windows for snap-to-window behavior
+          const otherWindows = Array.from(useWindowStore.getState().openWindows.values())
+            .filter((w) => w.id !== windowId);
+
+          const snapped = snapPosition(
+            newPosition.x,
+            newPosition.y,
+            size.width,
+            size.height,
+            otherWindows
+          );
+          newPosition = { x: snapped.x, y: snapped.y };
+        }
+
         await webview.setPosition(new PhysicalPosition(newPosition.x, newPosition.y));
 
         // Update store and sync
@@ -173,6 +306,16 @@ export function useWindows() {
       }
     },
     [customPositions]
+  );
+
+  /**
+   * Move window with snapping applied
+   */
+  const moveWindowWithSnap = useCallback(
+    async (windowId: string, x: number, y: number) => {
+      return moveWindow(windowId, { x, y }, { enableSnap: true });
+    },
+    [moveWindow]
   );
 
   const focusWindow = useCallback(async (windowId: string) => {
@@ -191,6 +334,10 @@ export function useWindows() {
     createThoughtWindow,
     closeThoughtWindow,
     moveWindow,
+    moveWindowWithSnap,
     focusWindow,
   };
 }
+
+// Export snap utilities for external use
+export { snapPosition, SNAP_THRESHOLD, EDGE_PADDING };

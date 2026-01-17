@@ -28,7 +28,8 @@
 }
 
 .settings-btn,
-.history-btn {
+.history-btn,
+.characters-btn {
   width: 28px;
   height: 28px;
   display: flex;
@@ -43,9 +44,19 @@
 }
 
 .settings-btn:hover,
-.history-btn:hover {
+.history-btn:hover,
+.characters-btn:hover {
   color: var(--text-primary);
   background: var(--bg-tertiary);
+}
+
+.characters-btn {
+  color: var(--accent-color);
+}
+
+.characters-btn:hover {
+  color: var(--accent-color);
+  background: var(--bg-highlight);
 }
 
 .control-main {

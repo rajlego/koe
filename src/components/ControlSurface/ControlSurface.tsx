@@ -13,6 +13,8 @@ import './ControlSurface.css';
 // Lazy load modals/overlays
 const ThoughtHistory = lazy(() => import('../common/ThoughtHistory'));
 const Settings = lazy(() => import('../Settings'));
+const CharacterSelector = lazy(() => import('../CharacterSelector/CharacterSelector'));
+const ConversationView = lazy(() => import('../ConversationView/ConversationView'));
 
 export default function ControlSurface() {
   const { voiceState, lastTranscript, isListening, isProcessing } = useVoice();
@@ -21,6 +23,8 @@ export default function ControlSurface() {
   const [recentActions, setRecentActions] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showCharacters, setShowCharacters] = useState(false);
+  const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter thoughts based on search query (searches content, type, and tags)
@@ -39,11 +43,28 @@ export default function ControlSurface() {
     setSearchQuery(query);
   }, []);
 
+  const handleSelectCharacter = useCallback((characterId: string) => {
+    setActiveCharacterId(characterId);
+    setShowCharacters(false);
+  }, []);
+
   // Keyboard shortcuts
   useKeyboard({
     onOpenSettings: () => setShowSettings(true),
     onOpenHistory: () => setShowHistory(true),
   });
+
+  // Additional keyboard shortcut for characters (Cmd+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey && e.key === 'k') {
+        e.preventDefault();
+        setShowCharacters(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Load and subscribe to thoughts
   useEffect(() => {
@@ -66,16 +87,41 @@ export default function ControlSurface() {
     }
   }, [lastResponse]);
 
+  // If a character is active, show conversation view
+  if (activeCharacterId) {
+    return (
+      <Suspense fallback={<div className="loading">Loading conversation...</div>}>
+        <ConversationView
+          characterId={activeCharacterId}
+          onClose={() => setActiveCharacterId(null)}
+        />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="control-surface">
       <Suspense fallback={null}>
         {showSettings && <Settings onClose={() => setShowSettings(false)} />}
         {showHistory && <ThoughtHistory thoughts={thoughts} onClose={() => setShowHistory(false)} />}
+        {showCharacters && (
+          <CharacterSelector
+            onSelectCharacter={handleSelectCharacter}
+            onClose={() => setShowCharacters(false)}
+          />
+        )}
       </Suspense>
 
       <header className="control-header">
         <h1 className="app-title">Koe</h1>
         <div className="header-actions">
+          <button
+            className="characters-btn"
+            onClick={() => setShowCharacters(true)}
+            title="Characters (Cmd+K)"
+          >
+            <CharacterIcon />
+          </button>
           <button
             className="history-btn"
             onClick={() => setShowHistory(true)}
@@ -133,7 +179,7 @@ export default function ControlSurface() {
           {isListening ? 'Listening...' : isProcessing ? 'Processing...' : 'Ready'}
         </span>
         <span className="keyboard-hint">
-          <kbd>Esc</kbd> voice &middot; <kbd>Cmd+N</kbd> new &middot; <kbd>Cmd+,</kbd> settings
+          <kbd>Esc</kbd> voice &middot; <kbd>Cmd+K</kbd> characters &middot; <kbd>Cmd+,</kbd> settings
         </span>
       </footer>
     </div>
@@ -154,6 +200,15 @@ function HistoryIcon() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
       <circle cx="8" cy="8" r="6" />
       <path d="M8 4v4l2 2" />
+    </svg>
+  );
+}
+
+function CharacterIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="8" cy="5" r="3" />
+      <path d="M3 14c0-3 2.5-5 5-5s5 2 5 5" />
     </svg>
   );
 }

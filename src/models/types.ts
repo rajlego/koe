@@ -5,6 +5,7 @@ export interface Thought {
   content: string;
   type: ThoughtType;
   tags?: string[];
+  order?: number; // For manual ordering in the list (lower = higher priority)
   createdAt: string;
   modifiedAt: string;
 }
@@ -74,4 +75,42 @@ export interface LLMTool {
     properties: Record<string, unknown>;
     required?: string[];
   };
+}
+
+// Image Generation Types
+export type ImageProvider = 'openai' | 'stability' | 'replicate';
+
+export type ImageSize = '256x256' | '512x512' | '1024x1024' | '1024x1792' | '1792x1024';
+
+export type ImageStyle = 'vivid' | 'natural';
+
+export type ImageQuality = 'standard' | 'hd';
+
+export interface ImageGenerationConfig {
+  provider: ImageProvider;
+  model?: string;
+  size?: ImageSize;
+  style?: ImageStyle;
+  quality?: ImageQuality;
+}
+
+export interface GeneratedImage {
+  id: string;
+  prompt: string;
+  url?: string;
+  base64?: string;
+  provider: ImageProvider;
+  model: string;
+  createdAt: string;
+  cached: boolean;
+}
+
+export interface ImageCacheEntry {
+  id: string;
+  promptHash: string;
+  base64: string;
+  provider: ImageProvider;
+  model: string;
+  createdAt: string;
+  expiresAt: string;
 }

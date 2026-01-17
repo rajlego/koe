@@ -43,3 +43,20 @@ export {
 } from './firebaseSync';
 
 export { firebaseConfig, isFirebaseConfigured } from './firebaseConfig';
+
+export {
+  getCharactersMap,
+  addCharacter,
+  updateCharacter,
+  deleteCharacter,
+  getCharacter,
+  getAllCharacters,
+  getActiveCharacter,
+  setActiveCharacter,
+  onCharactersChange,
+  isNameTaken,
+  getCharacterCount,
+  searchCharacters,
+  exportCharacters,
+  importCharacters,
+} from './characterSync';

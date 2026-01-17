@@ -31,6 +31,7 @@ export function yMapToThought(ymap: Y.Map<unknown>): Thought {
     content: ymap.get('content') as string,
     type: ymap.get('type') as Thought['type'],
     tags: ymap.get('tags') as string[] | undefined,
+    order: ymap.get('order') as number | undefined,
     createdAt: ymap.get('createdAt') as string,
     modifiedAt: ymap.get('modifiedAt') as string,
   };
@@ -45,6 +46,8 @@ export function addThought(thought: Thought): void {
   if (thought.tags) {
     ymap.set('tags', thought.tags);
   }
+  // Set order to 0 for new thoughts (they appear at top), or use provided order
+  ymap.set('order', thought.order ?? 0);
   ymap.set('createdAt', thought.createdAt);
   ymap.set('modifiedAt', thought.modifiedAt);
   thoughtsMap.set(thought.id, ymap);
@@ -64,6 +67,24 @@ export function updateThought(thoughtId: string, updates: Partial<Thought>): voi
 export function deleteThought(thoughtId: string): void {
   const thoughtsMap = getThoughtsMap();
   thoughtsMap.delete(thoughtId);
+}
+
+/**
+ * Reorder thoughts by updating their order values.
+ * @param orderedIds - Array of thought IDs in the desired order (first = lowest order value)
+ */
+export function reorderThoughts(orderedIds: string[]): void {
+  const thoughtsMap = getThoughtsMap();
+
+  // Use a transaction to batch all updates
+  ydoc.transact(() => {
+    orderedIds.forEach((id, index) => {
+      const ymap = thoughtsMap.get(id);
+      if (ymap) {
+        ymap.set('order', index);
+      }
+    });
+  });
 }
 
 export function getThought(thoughtId: string): Thought | null {

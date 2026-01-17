@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { exportToJSON, importFromJSON, exportThoughtsAsMarkdown } from '../../services/exportImport';
+import { themes, themeNames } from '../../styles/themes';
 import AuthSection from './AuthSection';
 import './Settings.css';
 
@@ -12,6 +13,8 @@ export default function Settings({ onClose }: SettingsProps) {
   const {
     displayMode,
     setDisplayMode,
+    theme,
+    setTheme,
     voiceEnabled,
     setVoiceEnabled,
     ttsEnabled,
@@ -108,6 +111,27 @@ export default function Settings({ onClose }: SettingsProps) {
                   <small>Main window shows active thought with voice indicator</small>
                 </span>
               </label>
+            </div>
+          </section>
+
+          {/* Theme */}
+          <section className="settings-section">
+            <h3>Theme</h3>
+            <div className="theme-picker">
+              {themeNames.map((themeName) => (
+                <button
+                  key={themeName}
+                  className={`theme-option ${theme === themeName ? 'active' : ''}`}
+                  onClick={() => setTheme(themeName)}
+                  style={{
+                    '--preview-bg': themes[themeName].variables['--bg-primary'],
+                    '--preview-accent': themes[themeName].variables['--accent-color'],
+                  } as React.CSSProperties}
+                >
+                  <span className="theme-preview" />
+                  <span className="theme-name">{themes[themeName].label}</span>
+                </button>
+              ))}
             </div>
           </section>
 

@@ -1,15 +1,20 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { CustomPosition } from '../models/types';
+import type { ThemeName } from '../styles/themes';
 
 interface SettingsState {
   // Display
   displayMode: 'control' | 'integrated';
-  theme: 'dark' | 'light';
+  theme: ThemeName;
 
   // Voice
   voiceEnabled: boolean;
   ttsEnabled: boolean;
+
+  // ElevenLabs TTS
+  elevenLabsVoiceId: string | null;
+  elevenLabsStreaming: boolean;
 
   // Sound
   soundsEnabled: boolean;
@@ -20,9 +25,11 @@ interface SettingsState {
 
   // Actions
   setDisplayMode: (mode: 'control' | 'integrated') => void;
-  setTheme: (theme: 'dark' | 'light') => void;
+  setTheme: (theme: ThemeName) => void;
   setVoiceEnabled: (enabled: boolean) => void;
   setTtsEnabled: (enabled: boolean) => void;
+  setElevenLabsVoiceId: (voiceId: string | null) => void;
+  setElevenLabsStreaming: (enabled: boolean) => void;
   setSoundsEnabled: (enabled: boolean) => void;
   setRestoreWindows: (enabled: boolean) => void;
   addCustomPosition: (position: CustomPosition) => void;
@@ -37,6 +44,8 @@ export const useSettingsStore = create<SettingsState>()(
       theme: 'dark',
       voiceEnabled: true,
       ttsEnabled: false,
+      elevenLabsVoiceId: null,
+      elevenLabsStreaming: true,
       soundsEnabled: true,
       restoreWindows: true,
       customPositions: [],
@@ -46,6 +55,8 @@ export const useSettingsStore = create<SettingsState>()(
       setTheme: (theme) => set({ theme }),
       setVoiceEnabled: (enabled) => set({ voiceEnabled: enabled }),
       setTtsEnabled: (enabled) => set({ ttsEnabled: enabled }),
+      setElevenLabsVoiceId: (voiceId) => set({ elevenLabsVoiceId: voiceId }),
+      setElevenLabsStreaming: (enabled) => set({ elevenLabsStreaming: enabled }),
       setSoundsEnabled: (enabled) => set({ soundsEnabled: enabled }),
       setRestoreWindows: (enabled) => set({ restoreWindows: enabled }),
 

@@ -165,6 +165,6 @@ test.describe('Keyboard Navigation', () => {
   test('should have keyboard hint in footer', async ({ page }) => {
     // Verify keyboard hints are displayed for users
     await expect(page.locator('.keyboard-hint')).toBeVisible();
-    await expect(page.locator('.keyboard-hint')).toContainText('Cmd+N');
+    await expect(page.locator('.keyboard-hint')).toContainText('Cmd+K');
   });
 });
