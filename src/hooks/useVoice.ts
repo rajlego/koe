@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useWindowStore } from '../store/windowStore';
 import { useSettingsStore, getApiKey } from '../store/settingsStore';
 import { sounds } from '../services/sounds';
+import { logger } from '../services/logger';
 import type { VoiceState } from '../models/types';
 
 // Debug state for visible logging
@@ -99,10 +100,12 @@ export function useVoice() {
 
     const setupListeners = async () => {
       try {
+        logger.info('[Voice] Setting up event listeners...');
+
         const unlistenTranscript = await listen<TranscriptEvent>('voice:transcript', (event) => {
           eventsReceivedRef.current += 1;
           const { text, isFinal } = event.payload;
-          console.log('[Voice] Transcript received:', text.slice(0, 50));
+          logger.info('[Voice] Transcript received:', text.slice(0, 50));
 
           if (mounted) {
             setDebugState(prev => ({
@@ -121,13 +124,14 @@ export function useVoice() {
         });
 
         const unlistenState = await listen<VoiceState>('voice:state', (event) => {
+          logger.info('[Voice] State event:', event.payload);
           if (mounted) {
             setVoiceState(event.payload);
           }
         });
 
         const unlistenError = await listen<string>('voice:error', (event) => {
-          console.error('[Voice] Error:', event.payload);
+          logger.error('[Voice] Error event:', event.payload);
           if (mounted && event.payload && !event.payload.includes('stopped')) {
             setDebugState(prev => ({
               ...prev,
@@ -140,7 +144,7 @@ export function useVoice() {
 
         if (mounted) {
           setDebugState(prev => ({ ...prev, listenerAttached: true }));
-          console.log('[Voice] All listeners attached successfully');
+          logger.info('[Voice] All listeners attached successfully');
         }
 
         // Return cleanup function
@@ -152,7 +156,7 @@ export function useVoice() {
           invoke('stop_voice_capture').catch(() => {});
         };
       } catch (err) {
-        console.error('[Voice] Failed to setup listeners:', err);
+        logger.error('[Voice] Failed to setup listeners:', String(err));
         if (mounted) {
           setDebugState(prev => ({
             ...prev,

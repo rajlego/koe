@@ -55,6 +55,17 @@ fn set_audio_device(device_name: Option<String>) {
     voice::set_input_device(device_name);
 }
 
+/// Log from frontend to Rust stdout (visible in terminal)
+#[tauri::command]
+fn frontend_log(level: String, message: String) {
+    let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
+    match level.as_str() {
+        "error" => eprintln!("[{}] [FE:ERROR] {}", timestamp, message),
+        "warn" => println!("[{}] [FE:WARN] {}", timestamp, message),
+        _ => println!("[{}] [FE:{}] {}", timestamp, level.to_uppercase(), message),
+    }
+}
+
 #[tauri::command]
 fn open_external_url(url: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
@@ -95,6 +106,7 @@ pub fn run() {
             get_selected_audio_device,
             set_audio_device,
             open_external_url,
+            frontend_log,
         ])
         .setup(|_app| {
             // Initialize voice capture system
