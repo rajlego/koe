@@ -55,6 +55,23 @@ fn set_audio_device(device_name: Option<String>) {
     voice::set_input_device(device_name);
 }
 
+/// Simulate a voice transcript event for testing (no actual audio needed)
+#[tauri::command]
+fn test_emit_transcript(app: tauri::AppHandle, text: String) -> Result<(), String> {
+    use tauri::{Emitter, EventTarget};
+    println!("[TEST] Emitting test transcript: {}", text);
+    app.emit_to(
+        EventTarget::Any,
+        "voice:transcript",
+        serde_json::json!({
+            "text": text,
+            "isFinal": true
+        }),
+    ).map_err(|e| e.to_string())?;
+    println!("[TEST] Test transcript emitted successfully");
+    Ok(())
+}
+
 /// Log from frontend to Rust stdout (visible in terminal)
 #[tauri::command]
 fn frontend_log(level: String, message: String) {
@@ -107,6 +124,7 @@ pub fn run() {
             set_audio_device,
             open_external_url,
             frontend_log,
+            test_emit_transcript,
         ])
         .setup(|_app| {
             // Initialize voice capture system
