@@ -11,6 +11,8 @@ interface PhoenixWrightStyleProps {
   portraitUrl?: string;
   isGeneratingPortrait: boolean;
   isSpeaking: boolean;
+  isListening?: boolean;
+  voiceTranscript?: string;
   error: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   onInputChange: (text: string) => void;
@@ -18,6 +20,8 @@ interface PhoenixWrightStyleProps {
   onKeyDown: (e: React.KeyboardEvent) => void;
   onStopSpeaking: () => void;
   onCancel: () => void;
+  onToggleVoice?: () => void;
+  onClose?: () => void;
 }
 
 export default function PhoenixWrightStyle({
@@ -29,6 +33,8 @@ export default function PhoenixWrightStyle({
   portraitUrl,
   isGeneratingPortrait,
   isSpeaking,
+  isListening,
+  voiceTranscript,
   error,
   messagesEndRef,
   onInputChange,
@@ -36,17 +42,20 @@ export default function PhoenixWrightStyle({
   onKeyDown,
   onStopSpeaking,
   onCancel,
+  onToggleVoice,
+  onClose,
 }: PhoenixWrightStyleProps) {
   // Typewriter effect state
   const [displayedText, setDisplayedText] = useState('');
   const [isTypewriting, setIsTypewriting] = useState(false);
-  const [currentMessageIndex, setCurrentMessageIndex] = useState(-1);
+  const [lastProcessedMessageId, setLastProcessedMessageId] = useState<string | null>(null);
   const typewriterRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Get the last character message for display
   const lastCharacterMessage = messages.filter((m) => m.role === 'character').pop();
   const textToDisplay = streamingText || lastCharacterMessage?.content || '';
+  const currentMessageId = lastCharacterMessage?.id || null;
 
   // Typewriter effect for character messages
   useEffect(() => {
@@ -63,13 +72,12 @@ export default function PhoenixWrightStyle({
       return;
     }
 
-    // Check if this is a new message
-    const messageIndex = messages.findIndex((m) => m.content === textToDisplay);
-    if (messageIndex === currentMessageIndex) {
+    // Check if this is a new message using ID (handles duplicate content)
+    if (currentMessageId === lastProcessedMessageId) {
       return;
     }
 
-    setCurrentMessageIndex(messageIndex);
+    setLastProcessedMessageId(currentMessageId);
     setDisplayedText('');
     setIsTypewriting(true);
 
@@ -98,7 +106,7 @@ export default function PhoenixWrightStyle({
         clearInterval(typewriterRef.current);
       }
     };
-  }, [textToDisplay, messages, currentMessageIndex, streamingText]);
+  }, [textToDisplay, currentMessageId, lastProcessedMessageId, streamingText]);
 
   // Skip typewriter effect on click
   const handleSkipTypewriter = useCallback(() => {
@@ -125,6 +133,14 @@ export default function PhoenixWrightStyle({
       <div className="pw-background">
         <div className="pw-bg-pattern" />
       </div>
+
+      {/* Back button */}
+      {onClose && (
+        <button className="pw-back-btn" onClick={onClose} title="Back (Cmd+W)">
+          <BackIcon />
+          <span>Back</span>
+        </button>
+      )}
 
       {/* Character Portrait */}
       <div className="pw-portrait-area">
@@ -199,27 +215,50 @@ export default function PhoenixWrightStyle({
       {/* User Input Area */}
       {isUserTurn && (
         <div className="pw-input-area">
+          {/* Voice listening indicator */}
+          {isListening && (
+            <div className="pw-voice-listening">
+              <div className="pw-voice-indicator">
+                <span className="pulse-ring" />
+                <MicIcon />
+              </div>
+              <span className="pw-voice-text">
+                {voiceTranscript || 'Listening...'}
+              </span>
+            </div>
+          )}
           <form onSubmit={onSubmit} className="pw-input-form">
+            {onToggleVoice && (
+              <button
+                type="button"
+                className={`pw-voice-btn ${isListening ? 'listening' : ''}`}
+                onClick={onToggleVoice}
+                title={isListening ? 'Stop listening (Esc)' : 'Start voice input (Esc)'}
+              >
+                <MicIcon />
+              </button>
+            )}
             <input
               ref={inputRef}
               type="text"
               value={inputText}
               onChange={(e) => onInputChange(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Type your response..."
+              placeholder={isListening ? 'Listening...' : 'Type or speak your response...'}
               className="pw-input"
               autoFocus
+              disabled={isListening}
             />
             <button
               type="submit"
               className="pw-submit-btn"
-              disabled={!inputText.trim()}
+              disabled={!inputText.trim() || isListening}
             >
               Present
             </button>
           </form>
           <div className="pw-hint">
-            Press <kbd>Enter</kbd> to send
+            Press <kbd>Esc</kbd> to speak, <kbd>Enter</kbd> to send
           </div>
         </div>
       )}
@@ -233,5 +272,23 @@ export default function PhoenixWrightStyle({
 
       <div ref={messagesEndRef} />
     </div>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="9" y="2" width="6" height="11" rx="3" />
+      <path d="M5 10v1c0 3.87 3.13 7 7 7s7-3.13 7-7v-1" />
+      <path d="M12 18v4M8 22h8" />
+    </svg>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M10 3L5 8l5 5" />
+    </svg>
   );
 }

@@ -11,6 +11,8 @@ interface ChatBubbleStyleProps {
   portraitUrl?: string;
   isGeneratingPortrait: boolean;
   isSpeaking: boolean;
+  isListening?: boolean;
+  voiceTranscript?: string;
   error: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   onInputChange: (text: string) => void;
@@ -18,6 +20,8 @@ interface ChatBubbleStyleProps {
   onKeyDown: (e: React.KeyboardEvent) => void;
   onStopSpeaking: () => void;
   onCancel: () => void;
+  onToggleVoice?: () => void;
+  onClose?: () => void;
 }
 
 export default function ChatBubbleStyle({
@@ -29,6 +33,8 @@ export default function ChatBubbleStyle({
   portraitUrl,
   isGeneratingPortrait,
   isSpeaking,
+  isListening,
+  voiceTranscript,
   error,
   messagesEndRef,
   onInputChange,
@@ -36,6 +42,8 @@ export default function ChatBubbleStyle({
   onKeyDown: _onKeyDown,
   onStopSpeaking,
   onCancel,
+  onToggleVoice,
+  onClose,
 }: ChatBubbleStyleProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -74,6 +82,11 @@ export default function ChatBubbleStyle({
         className="cb-header"
         style={{ '--accent': character.appearance.accentColor || '#06d6a0' } as React.CSSProperties}
       >
+        {onClose && (
+          <button className="cb-back-btn" onClick={onClose} title="Back (Cmd+W)">
+            <BackIcon />
+          </button>
+        )}
         <div className="cb-header-avatar">
           {isGeneratingPortrait ? (
             <div className="cb-avatar-loading">
@@ -204,7 +217,29 @@ export default function ChatBubbleStyle({
 
       {/* Input Area */}
       <div className="cb-input-area">
+        {/* Voice listening indicator */}
+        {isListening && (
+          <div className="cb-voice-listening">
+            <div className="cb-voice-indicator">
+              <span className="pulse-ring" />
+              <MicIcon />
+            </div>
+            <span className="cb-voice-text">
+              {voiceTranscript || 'Listening...'}
+            </span>
+          </div>
+        )}
         <form onSubmit={onSubmit} className="cb-input-form">
+          {onToggleVoice && (
+            <button
+              type="button"
+              className={`cb-voice-btn ${isListening ? 'listening' : ''}`}
+              onClick={onToggleVoice}
+              title={isListening ? 'Stop listening (Esc)' : 'Start voice input (Esc)'}
+            >
+              <MicIcon />
+            </button>
+          )}
           <textarea
             ref={inputRef}
             value={inputText}
@@ -215,14 +250,15 @@ export default function ChatBubbleStyle({
                 onSubmit();
               }
             }}
-            placeholder={`Message ${character.name}...`}
+            placeholder={isListening ? 'Listening...' : `Message ${character.name}...`}
             className="cb-input"
             rows={1}
+            disabled={isListening}
           />
           <button
             type="submit"
             className="cb-send-btn"
-            disabled={!inputText.trim() || isTyping}
+            disabled={!inputText.trim() || isTyping || isListening}
           >
             <SendIcon />
           </button>
@@ -268,6 +304,24 @@ function StopIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
       <rect x="4" y="4" width="8" height="8" rx="1" />
+    </svg>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="9" y="2" width="6" height="11" rx="3" />
+      <path d="M5 10v1c0 3.87 3.13 7 7 7s7-3.13 7-7v-1" />
+      <path d="M12 18v4M8 22h8" />
+    </svg>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M10 3L5 8l5 5" />
     </svg>
   );
 }

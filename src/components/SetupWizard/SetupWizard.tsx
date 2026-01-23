@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore, getApiKey } from '../../store/settingsStore';
 import './SetupWizard.css';
 
@@ -95,8 +96,12 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
     }
   }, [isLastStep, onComplete]);
 
-  const handleOpenUrl = useCallback(() => {
-    window.open(step.url, '_blank');
+  const handleOpenUrl = useCallback(async () => {
+    try {
+      await invoke('open_external_url', { url: step.url });
+    } catch (err) {
+      console.error('Failed to open URL:', err);
+    }
   }, [step.url]);
 
   const canSkip = !step.required;

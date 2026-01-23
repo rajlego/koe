@@ -11,7 +11,7 @@ function getPort(): number {
   if (existsSync(portFile)) {
     return parseInt(readFileSync(portFile, "utf-8").trim(), 10);
   }
-  return 1420;
+  return 1450; // Unique port for Koe to avoid cache conflicts
 }
 
 export default defineConfig(async () => ({

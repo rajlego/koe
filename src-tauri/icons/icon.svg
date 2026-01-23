@@ -1,15 +1,42 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="512" height="512" rx="96" fill="#0a0a0f"/>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#16162a"/>
+      <stop offset="100%" stop-color="#0a0a14"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#10f0b0"/>
+      <stop offset="100%" stop-color="#06d6a0"/>
+    </linearGradient>
+    <linearGradient id="accentDark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#06d6a0"/>
+      <stop offset="100%" stop-color="#049070"/>
+    </linearGradient>
+  </defs>
 
-  <!-- Voice wave circles -->
-  <circle cx="256" cy="256" r="180" stroke="#06d6a0" stroke-width="4" stroke-opacity="0.2" fill="none"/>
-  <circle cx="256" cy="256" r="140" stroke="#06d6a0" stroke-width="4" stroke-opacity="0.4" fill="none"/>
-  <circle cx="256" cy="256" r="100" stroke="#06d6a0" stroke-width="4" stroke-opacity="0.6" fill="none"/>
+  <!-- Background with rounded corners -->
+  <rect width="512" height="512" rx="102" fill="url(#bg)"/>
 
-  <!-- Center dot - listening indicator -->
-  <circle cx="256" cy="256" r="40" fill="#06d6a0"/>
+  <!-- Subtle outer ring -->
+  <circle cx="256" cy="256" r="200" stroke="#06d6a0" stroke-width="2" stroke-opacity="0.15" fill="none"/>
 
-  <!-- K letter hint -->
-  <text x="256" y="276" font-family="system-ui, sans-serif" font-size="48" font-weight="bold" fill="#0a0a0f" text-anchor="middle">K</text>
+  <!-- Sound wave bars - voice visualization -->
+  <g transform="translate(256, 256)">
+    <!-- Left side waves -->
+    <rect x="-140" y="-30" width="20" height="60" rx="10" fill="url(#accent)" opacity="0.4"/>
+    <rect x="-105" y="-55" width="20" height="110" rx="10" fill="url(#accent)" opacity="0.6"/>
+    <rect x="-70" y="-80" width="20" height="160" rx="10" fill="url(#accent)" opacity="0.8"/>
+
+    <!-- Center bar - tallest -->
+    <rect x="-35" y="-100" width="24" height="200" rx="12" fill="url(#accent)"/>
+
+    <!-- Right side waves -->
+    <rect x="11" y="-100" width="24" height="200" rx="12" fill="url(#accent)"/>
+    <rect x="50" y="-80" width="20" height="160" rx="10" fill="url(#accent)" opacity="0.8"/>
+    <rect x="85" y="-55" width="20" height="110" rx="10" fill="url(#accent)" opacity="0.6"/>
+    <rect x="120" y="-30" width="20" height="60" rx="10" fill="url(#accent)" opacity="0.4"/>
+  </g>
+
+  <!-- Glow effect behind center -->
+  <circle cx="256" cy="256" r="120" fill="#06d6a0" opacity="0.08"/>
 </svg>

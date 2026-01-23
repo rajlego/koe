@@ -2,7 +2,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use parking_lot::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, EventTarget};
 
 // Voice capture state
 static CAPTURING: AtomicBool = AtomicBool::new(false);
@@ -18,6 +18,10 @@ struct WhisperConfig {
     model_path: Option<String>,
 }
 
+struct DeviceConfig {
+    selected_device: Option<String>,
+}
+
 lazy_static::lazy_static! {
     static ref AUDIO_BUFFER: Arc<Mutex<AudioBuffer>> = Arc::new(Mutex::new(AudioBuffer {
         samples: Vec::new(),
@@ -27,6 +31,9 @@ lazy_static::lazy_static! {
         api_key: None,
         use_local: false,
         model_path: None,
+    }));
+    static ref DEVICE_CONFIG: Arc<Mutex<DeviceConfig>> = Arc::new(Mutex::new(DeviceConfig {
+        selected_device: None,
     }));
 }
 
@@ -60,32 +67,101 @@ pub fn configure_whisper(api_key: Option<String>, use_local: bool, model_path: O
     config.model_path = model_path;
 }
 
+/// List available audio input devices
+pub fn list_input_devices() -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let host = cpal::default_host();
+    let devices: Vec<String> = host
+        .input_devices()?
+        .filter_map(|d| d.name().ok())
+        .collect();
+    Ok(devices)
+}
+
+/// Get the currently selected device name (or default)
+pub fn get_selected_device() -> Option<String> {
+    let config = DEVICE_CONFIG.lock();
+    config.selected_device.clone()
+}
+
+/// Set the audio input device by name
+pub fn set_input_device(device_name: Option<String>) {
+    let mut config = DEVICE_CONFIG.lock();
+    config.selected_device = device_name;
+}
+
+/// Get a device by name, or the default input device
+fn get_input_device() -> Result<cpal::Device, Box<dyn std::error::Error>> {
+    let host = cpal::default_host();
+    let config = DEVICE_CONFIG.lock();
+
+    if let Some(ref name) = config.selected_device {
+        // Try to find the device by name
+        for device in host.input_devices()? {
+            if device.name().ok().as_ref() == Some(name) {
+                return Ok(device);
+            }
+        }
+        // Fall through to default if not found
+        eprintln!("Selected device '{}' not found, using default", name);
+    }
+
+    host.default_input_device()
+        .ok_or_else(|| "No input device available".into())
+}
+
 pub fn start_capture(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     if CAPTURING.load(Ordering::SeqCst) {
         return Ok(());
     }
 
-    let host = cpal::default_host();
-    let device = host
-        .default_input_device()
-        .ok_or("No input device available")?;
+    let device = get_input_device()?;
+    let device_name = device.name().unwrap_or_else(|_| "Unknown".to_string());
+    println!("Using audio device: {}", device_name);
 
-    // Configure for 16kHz mono (what Whisper expects)
-    let config = cpal::StreamConfig {
-        channels: 1,
-        sample_rate: cpal::SampleRate(16000),
-        buffer_size: cpal::BufferSize::Default,
+    // Get supported config - prefer mono at any sample rate
+    let supported_config = device
+        .supported_input_configs()?
+        .filter(|c| c.channels() == 1)
+        .max_by_key(|c| c.max_sample_rate().0)
+        .or_else(|| {
+            // Fall back to any config if no mono available
+            device.supported_input_configs().ok()?.next()
+        })
+        .ok_or("No supported audio configuration found")?;
+
+    // Use a reasonable sample rate within the supported range
+    let min_rate = supported_config.min_sample_rate().0;
+    let max_rate = supported_config.max_sample_rate().0;
+
+    // Prefer 16kHz (Whisper native), then 44.1kHz, then 48kHz, then max available
+    let target_rate = if min_rate <= 16000 && 16000 <= max_rate {
+        16000
+    } else if min_rate <= 44100 && 44100 <= max_rate {
+        44100
+    } else if min_rate <= 48000 && 48000 <= max_rate {
+        48000
+    } else {
+        max_rate
     };
+
+    let config: cpal::StreamConfig = supported_config
+        .with_sample_rate(cpal::SampleRate(target_rate))
+        .into();
+
+    let actual_channels = config.channels;
+    let actual_sample_rate = config.sample_rate.0;
+    println!("Audio config: {}Hz, {} channel(s)", actual_sample_rate, actual_channels);
 
     // Update buffer sample rate
     {
         let mut buffer = AUDIO_BUFFER.lock();
-        buffer.sample_rate = 16000;
+        buffer.sample_rate = actual_sample_rate;
         buffer.samples.clear();
     }
 
     let app_handle = app.clone();
     let err_app = app.clone();
+    let channels = actual_channels;
 
     // Build input stream
     let stream = device.build_input_stream(
@@ -96,7 +172,24 @@ pub fn start_capture(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             }
 
             let mut buffer = AUDIO_BUFFER.lock();
-            buffer.samples.extend_from_slice(data);
+
+            // Convert to mono if stereo
+            if channels == 2 {
+                for chunk in data.chunks(2) {
+                    if chunk.len() == 2 {
+                        buffer.samples.push((chunk[0] + chunk[1]) / 2.0);
+                    }
+                }
+            } else if channels == 1 {
+                buffer.samples.extend_from_slice(data);
+            } else {
+                // Multi-channel: take first channel only
+                for chunk in data.chunks(channels as usize) {
+                    if !chunk.is_empty() {
+                        buffer.samples.push(chunk[0]);
+                    }
+                }
+            }
 
             // Simple VAD: check if we have enough audio and energy
             // Process every ~2 seconds of audio
@@ -114,23 +207,28 @@ pub fn start_capture(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     let sample_rate = buffer.sample_rate;
                     let app = app_handle.clone();
 
-                    // Process in background thread
-                    std::thread::spawn(move || {
+                    // Process using Tauri's async runtime (required for events to reach frontend)
+                    tauri::async_runtime::spawn_blocking(move || {
                         match transcribe_audio(&audio_data, sample_rate) {
                             Ok(Some(transcript)) if !transcript.trim().is_empty() => {
-                                app.emit(
+                                println!("Transcript: {}", transcript);
+                                if let Err(e) = app.emit_to(
+                                    EventTarget::Any,
                                     "voice:transcript",
                                     serde_json::json!({
                                         "text": transcript,
                                         "isFinal": true
                                     }),
-                                )
-                                .ok();
+                                ) {
+                                    eprintln!("Failed to emit transcript: {}", e);
+                                }
                             }
-                            Ok(_) => {} // No transcript or empty
+                            Ok(Some(_)) | Ok(None) => {
+                                // Empty or no transcript - ignore
+                            }
                             Err(e) => {
                                 eprintln!("Transcription error: {}", e);
-                                app.emit("voice:error", e.to_string()).ok();
+                                let _ = app.emit_to(EventTarget::Any, "voice:error", e.to_string());
                             }
                         }
                     });
@@ -142,7 +240,7 @@ pub fn start_capture(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         },
         move |err| {
             eprintln!("Audio stream error: {}", err);
-            err_app.emit("voice:error", err.to_string()).ok();
+            err_app.emit_to(EventTarget::Any, "voice:error", err.to_string()).ok();
         },
         None,
     )?;
@@ -155,7 +253,7 @@ pub fn start_capture(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     });
 
     CAPTURING.store(true, Ordering::SeqCst);
-    app.emit("voice:state", "listening").ok();
+    app.emit_to(EventTarget::Any, "voice:state", "listening").ok();
 
     println!("Voice capture started");
     Ok(())
@@ -179,28 +277,60 @@ pub fn stop_capture() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Resample audio to target sample rate using linear interpolation
+fn resample(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32> {
+    if from_rate == to_rate {
+        return samples.to_vec();
+    }
+
+    let ratio = from_rate as f64 / to_rate as f64;
+    let new_len = (samples.len() as f64 / ratio) as usize;
+    let mut resampled = Vec::with_capacity(new_len);
+
+    for i in 0..new_len {
+        let src_idx = i as f64 * ratio;
+        let idx_floor = src_idx.floor() as usize;
+        let idx_ceil = (idx_floor + 1).min(samples.len() - 1);
+        let frac = src_idx - idx_floor as f64;
+
+        let sample = samples[idx_floor] as f64 * (1.0 - frac) + samples[idx_ceil] as f64 * frac;
+        resampled.push(sample as f32);
+    }
+
+    resampled
+}
+
 /// Transcribe audio using available method (API or local)
 fn transcribe_audio(samples: &[f32], sample_rate: u32) -> Result<Option<String>, String> {
+    // Resample to 16kHz if needed (Whisper expects 16kHz)
+    let (samples_16k, rate_16k) = if sample_rate != 16000 {
+        println!("Resampling from {}Hz to 16000Hz ({} samples -> ~{} samples)",
+            sample_rate, samples.len(), samples.len() * 16000 / sample_rate as usize);
+        (resample(samples, sample_rate, 16000), 16000)
+    } else {
+        (samples.to_vec(), sample_rate)
+    };
+
     let config = WHISPER_CONFIG.lock();
 
     // Try local whisper first if configured
     #[cfg(feature = "whisper-local")]
     if config.use_local {
         if let Some(ref model_path) = config.model_path {
-            return transcribe_local(samples, sample_rate, model_path);
+            return transcribe_local(&samples_16k, rate_16k, model_path);
         }
     }
 
     // Fall back to OpenAI Whisper API
     if let Some(ref api_key) = config.api_key {
-        return transcribe_openai(samples, sample_rate, api_key);
+        return transcribe_openai(&samples_16k, rate_16k, api_key);
     }
 
     // No transcription method available - return placeholder
-    let duration_secs = samples.len() as f32 / sample_rate as f32;
+    let duration_secs = samples_16k.len() as f32 / rate_16k as f32;
     if duration_secs > 0.5 {
         Ok(Some(format!(
-            "[Audio: {:.1}s - configure OPENAI_API_KEY for transcription]",
+            "[Audio: {:.1}s - configure OpenAI API key in Settings for transcription]",
             duration_secs
         )))
     } else {

@@ -11,6 +11,8 @@ interface VisualNovelStyleProps {
   portraitUrl?: string;
   isGeneratingPortrait: boolean;
   isSpeaking: boolean;
+  isListening?: boolean;
+  voiceTranscript?: string;
   error: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   onInputChange: (text: string) => void;
@@ -18,6 +20,8 @@ interface VisualNovelStyleProps {
   onKeyDown: (e: React.KeyboardEvent) => void;
   onStopSpeaking: () => void;
   onCancel: () => void;
+  onToggleVoice?: () => void;
+  onClose?: () => void;
 }
 
 export default function VisualNovelStyle({
@@ -29,6 +33,8 @@ export default function VisualNovelStyle({
   portraitUrl,
   isGeneratingPortrait,
   isSpeaking,
+  isListening,
+  voiceTranscript,
   error,
   messagesEndRef,
   onInputChange,
@@ -36,6 +42,8 @@ export default function VisualNovelStyle({
   onKeyDown,
   onStopSpeaking,
   onCancel,
+  onToggleVoice,
+  onClose,
 }: VisualNovelStyleProps) {
   // Typewriter effect state
   const [displayedText, setDisplayedText] = useState('');
@@ -137,6 +145,14 @@ export default function VisualNovelStyle({
           ))}
         </div>
       </div>
+
+      {/* Back button */}
+      {onClose && (
+        <button className="vn-back-btn" onClick={onClose} title="Back (Cmd+W)">
+          <BackIcon />
+          <span>Back</span>
+        </button>
+      )}
 
       {/* Character Sprite */}
       <div className="vn-sprite-area">
@@ -244,25 +260,51 @@ export default function VisualNovelStyle({
       {/* User Input */}
       {isUserTurn && (
         <div className="vn-input-area">
+          {/* Voice listening indicator */}
+          {isListening && (
+            <div className="vn-voice-listening">
+              <div className="vn-voice-indicator">
+                <span className="pulse-ring" />
+                <MicIcon />
+              </div>
+              <span className="vn-voice-text">
+                {voiceTranscript || 'Listening...'}
+              </span>
+            </div>
+          )}
           <form onSubmit={onSubmit} className="vn-input-form">
+            {onToggleVoice && (
+              <button
+                type="button"
+                className={`vn-voice-btn ${isListening ? 'listening' : ''}`}
+                onClick={onToggleVoice}
+                title={isListening ? 'Stop listening (Esc)' : 'Start voice input (Esc)'}
+              >
+                <MicIcon />
+              </button>
+            )}
             <input
               ref={inputRef}
               type="text"
               value={inputText}
               onChange={(e) => onInputChange(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Your response..."
+              placeholder={isListening ? 'Listening...' : 'Your response...'}
               className="vn-input"
               autoFocus
+              disabled={isListening}
             />
             <button
               type="submit"
               className="vn-submit-btn"
-              disabled={!inputText.trim()}
+              disabled={!inputText.trim() || isListening}
             >
               Send
             </button>
           </form>
+          <div className="vn-hint">
+            Press <kbd>Esc</kbd> to speak, <kbd>Enter</kbd> to send
+          </div>
         </div>
       )}
 
@@ -299,6 +341,24 @@ function CancelIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M3 3l8 8M11 3l-8 8" />
+    </svg>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="9" y="2" width="6" height="11" rx="3" />
+      <path d="M5 10v1c0 3.87 3.13 7 7 7s7-3.13 7-7v-1" />
+      <path d="M12 18v4M8 22h8" />
+    </svg>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M10 3L5 8l5 5" />
     </svg>
   );
 }

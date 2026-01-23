@@ -14,7 +14,7 @@ import {
 import './CharacterCreator.css';
 
 interface CharacterCreatorProps {
-  onClose: () => void;
+  onClose: (newCharacterId?: string) => void;
   /** Optional: Edit an existing character by ID */
   editCharacterId?: string;
 }
@@ -135,10 +135,11 @@ export default function CharacterCreator({
     try {
       if (editCharacterId) {
         updateCharacter(editCharacterId, characterInput);
+        onClose(); // No new character, just close
       } else {
-        addCharacter(characterInput);
+        const newCharacter = addCharacter(characterInput);
+        onClose(newCharacter.id); // Pass new character ID to auto-select
       }
-      onClose();
     } catch (err) {
       setError((err as Error).message);
     }
@@ -170,11 +171,11 @@ export default function CharacterCreator({
   }, [onClose, handleSubmit]);
 
   return (
-    <div className="character-creator-overlay" onClick={onClose}>
+    <div className="character-creator-overlay" onClick={() => onClose()}>
       <div className="character-creator-panel" onClick={(e) => e.stopPropagation()}>
         <header className="character-creator-header">
           <h2>{editCharacterId ? 'Edit Character' : 'Create Character'}</h2>
-          <button className="close-btn" onClick={onClose}>
+          <button className="close-btn" onClick={() => onClose()}>
             &times;
           </button>
         </header>
@@ -544,7 +545,7 @@ export default function CharacterCreator({
             <kbd>Esc</kbd> to cancel, <kbd>Cmd+Enter</kbd> to save
           </div>
           <div className="footer-actions">
-            <button className="btn-secondary" onClick={onClose}>
+            <button className="btn-secondary" onClick={() => onClose()}>
               Cancel
             </button>
             <button className="btn-primary" onClick={handleSubmit}>

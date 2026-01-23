@@ -11,6 +11,7 @@ interface SettingsState {
   // Voice
   voiceEnabled: boolean;
   ttsEnabled: boolean;
+  audioInputDevice: string | null;
 
   // ElevenLabs TTS
   elevenLabsVoiceId: string | null;
@@ -44,6 +45,7 @@ interface SettingsState {
   setTheme: (theme: ThemeName) => void;
   setVoiceEnabled: (enabled: boolean) => void;
   setTtsEnabled: (enabled: boolean) => void;
+  setAudioInputDevice: (device: string | null) => void;
   setElevenLabsVoiceId: (voiceId: string | null) => void;
   setElevenLabsStreaming: (enabled: boolean) => void;
   setSoundsEnabled: (enabled: boolean) => void;
@@ -64,6 +66,7 @@ export const useSettingsStore = create<SettingsState>()(
       theme: 'dark',
       voiceEnabled: true,
       ttsEnabled: false,
+      audioInputDevice: null,
       elevenLabsVoiceId: null,
       elevenLabsStreaming: true,
       soundsEnabled: true,
@@ -85,6 +88,7 @@ export const useSettingsStore = create<SettingsState>()(
       setTheme: (theme) => set({ theme }),
       setVoiceEnabled: (enabled) => set({ voiceEnabled: enabled }),
       setTtsEnabled: (enabled) => set({ ttsEnabled: enabled }),
+      setAudioInputDevice: (device) => set({ audioInputDevice: device }),
       setElevenLabsVoiceId: (voiceId) => set({ elevenLabsVoiceId: voiceId }),
       setElevenLabsStreaming: (enabled) => set({ elevenLabsStreaming: enabled }),
       setSoundsEnabled: (enabled) => set({ soundsEnabled: enabled }),

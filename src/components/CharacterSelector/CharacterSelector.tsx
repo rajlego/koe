@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useCharacterStore } from '../../store/characterStore';
 import { generateCharacterPortrait, isImageGenAvailable } from '../../services/imageGen';
 import type { Character } from '../../models/character';
@@ -22,12 +22,22 @@ export default function CharacterSelector({
   const [generatingPortrait, setGeneratingPortrait] = useState<string | null>(null);
   const [hoveredCharacter, setHoveredCharacter] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const deleteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Initialize sync
   useEffect(() => {
     const unsubscribe = initSync();
     return unsubscribe;
   }, [initSync]);
+
+  // Cleanup delete confirmation timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (deleteTimeoutRef.current) {
+        clearTimeout(deleteTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Handle character selection
   const handleSelect = useCallback(
@@ -51,10 +61,19 @@ export default function CharacterSelector({
       if (confirmDelete === characterId) {
         deleteCharacter(characterId);
         setConfirmDelete(null);
+        // Clear the timeout since delete completed
+        if (deleteTimeoutRef.current) {
+          clearTimeout(deleteTimeoutRef.current);
+          deleteTimeoutRef.current = null;
+        }
       } else {
+        // Clear any existing timeout first
+        if (deleteTimeoutRef.current) {
+          clearTimeout(deleteTimeoutRef.current);
+        }
         setConfirmDelete(characterId);
         // Auto-reset after 3 seconds
-        setTimeout(() => setConfirmDelete(null), 3000);
+        deleteTimeoutRef.current = setTimeout(() => setConfirmDelete(null), 3000);
       }
     },
     [confirmDelete, deleteCharacter]
@@ -89,11 +108,16 @@ export default function CharacterSelector({
     []
   );
 
-  // Close creator
-  const handleCloseCreator = useCallback(() => {
+  // Close creator - optionally with a newly created character ID
+  const handleCloseCreator = useCallback((newCharacterId?: string) => {
     setShowCreator(false);
     setEditingCharacterId(undefined);
-  }, []);
+
+    // If a new character was created, auto-select it
+    if (newCharacterId) {
+      onSelectCharacter(newCharacterId);
+    }
+  }, [onSelectCharacter]);
 
   // Open creator for new character
   const handleCreateNew = useCallback(() => {
@@ -132,7 +156,16 @@ export default function CharacterSelector({
       </Suspense>
 
       <header className="cs-header">
-        <h1 className="cs-title">Summon a Character</h1>
+        <div className="cs-header-row">
+          <button className="cs-back-btn" onClick={onClose} title="Back (Esc)">
+            <BackIcon />
+            <span>Back</span>
+          </button>
+          <h1 className="cs-title">Summon a Character</h1>
+          <button className="cs-settings-btn" onClick={() => window.dispatchEvent(new CustomEvent('open-settings'))} title="Settings (Cmd+,)">
+            <SettingsIcon />
+          </button>
+        </div>
         <p className="cs-subtitle">
           Choose a character to start a conversation with
         </p>
@@ -205,8 +238,8 @@ export default function CharacterSelector({
               {/* Traits */}
               {character.personalityTraits.length > 0 && (
                 <div className="cs-traits">
-                  {character.personalityTraits.slice(0, 3).map((trait) => (
-                    <span key={trait.trait} className="cs-trait">
+                  {character.personalityTraits.slice(0, 3).map((trait, idx) => (
+                    <span key={`${character.id}-${trait.trait}-${idx}`} className="cs-trait">
                       {trait.trait}
                     </span>
                   ))}
@@ -276,11 +309,9 @@ export default function CharacterSelector({
         <span className="cs-hint">
           Click a character to start a conversation
         </span>
-        {onClose && (
-          <button className="cs-close-btn" onClick={onClose}>
-            Close <kbd>Esc</kbd>
-          </button>
-        )}
+        <span className="cs-hint">
+          Press <kbd>Esc</kbd> to go back
+        </span>
       </footer>
     </div>
   );
@@ -352,6 +383,23 @@ function GhostIcon() {
       <path d="M24 8c-7.18 0-13 5.82-13 13v19c0 0 3-3 6.5-3s5 3 6.5 3 3.5-3 6.5-3 6.5 3 6.5 3V21c0-7.18-5.82-13-13-13z" />
       <circle cx="19" cy="22" r="2" fill="currentColor" />
       <circle cx="29" cy="22" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M10 3L5 8l5 5" />
+    </svg>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="8" cy="8" r="2" />
+      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M2.93 2.93l1.41 1.41M11.66 11.66l1.41 1.41M2.93 13.07l1.41-1.41M11.66 4.34l1.41-1.41" />
     </svg>
   );
 }

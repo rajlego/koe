@@ -5,7 +5,7 @@
   "identifier": "com.koe.app",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:1450",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
@@ -13,8 +13,10 @@
     "windows": [
       {
         "title": "Koe",
-        "width": 360,
-        "height": 500,
+        "width": 800,
+        "height": 700,
+        "minWidth": 500,
+        "minHeight": 450,
         "resizable": true,
         "fullscreen": false,
         "alwaysOnTop": false,

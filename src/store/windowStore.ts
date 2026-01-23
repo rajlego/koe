@@ -10,6 +10,7 @@ interface WindowStoreState {
   // Voice state (UI only, actual voice handled by Rust)
   voiceState: VoiceState;
   lastTranscript: string;
+  lastError: string | null;
 
   // Open windows (for tracking, actual windows managed by Tauri)
   openWindows: Map<string, WindowState>;
@@ -19,6 +20,7 @@ interface WindowStoreState {
   setActiveWindow: (windowId: string | null) => void;
   setVoiceState: (state: VoiceState) => void;
   setLastTranscript: (transcript: string) => void;
+  setLastError: (error: string | null) => void;
   registerWindow: (window: WindowState) => void;
   unregisterWindow: (windowId: string) => void;
   updateWindowPosition: (windowId: string, x: number, y: number) => void;
@@ -31,6 +33,7 @@ export const useWindowStore = create<WindowStoreState>((set) => ({
   activeWindowId: null,
   voiceState: 'idle',
   lastTranscript: '',
+  lastError: null,
   openWindows: new Map(),
 
   // Actions
@@ -38,6 +41,7 @@ export const useWindowStore = create<WindowStoreState>((set) => ({
   setActiveWindow: (windowId) => set({ activeWindowId: windowId }),
   setVoiceState: (state) => set({ voiceState: state }),
   setLastTranscript: (transcript) => set({ lastTranscript: transcript }),
+  setLastError: (error) => set({ lastError: error }),
 
   registerWindow: (window) =>
     set((state) => {

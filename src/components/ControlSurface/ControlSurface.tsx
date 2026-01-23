@@ -19,9 +19,10 @@ const ConversationView = lazy(() => import('../ConversationView/ConversationView
 const SetupWizard = lazy(() => import('../SetupWizard'));
 
 export default function ControlSurface() {
-  const { voiceState, lastTranscript, isListening, isProcessing } = useVoice();
+  const { voiceState, lastTranscript, lastError, isListening, isProcessing, startListening, stopListening, clearError, debugState } = useVoice();
   const { processTranscript, isProcessing: llmProcessing, lastResponse, streamingText } = useLLM();
   const { setupCompleted, setSetupCompleted } = useSettingsStore();
+  const [showHelp, setShowHelp] = useState(false);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [recentActions, setRecentActions] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
@@ -58,22 +59,45 @@ export default function ControlSurface() {
     setShowCharacters(false);
   }, []);
 
+  // Toggle voice on/off
+  const toggleVoice = useCallback(() => {
+    if (voiceState === 'listening') {
+      stopListening();
+    } else {
+      startListening();
+    }
+  }, [voiceState, startListening, stopListening]);
+
   // Keyboard shortcuts
   useKeyboard({
     onOpenSettings: () => setShowSettings(true),
     onOpenHistory: () => setShowHistory(true),
+    onToggleVoice: toggleVoice,
   });
 
-  // Additional keyboard shortcut for characters (Cmd+K)
+  // Additional keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+K: Characters
       if (e.metaKey && e.key === 'k') {
         e.preventDefault();
         setShowCharacters(true);
       }
+      // Cmd+? or Cmd+/: Help
+      if (e.metaKey && (e.key === '?' || e.key === '/')) {
+        e.preventDefault();
+        setShowHelp(prev => !prev);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Listen for open-settings custom event (from other components)
+  useEffect(() => {
+    const handleOpenSettings = () => setShowSettings(true);
+    window.addEventListener('open-settings', handleOpenSettings);
+    return () => window.removeEventListener('open-settings', handleOpenSettings);
   }, []);
 
   // Load and subscribe to thoughts
@@ -85,7 +109,9 @@ export default function ControlSurface() {
 
   // Process transcript when voice processing completes
   useEffect(() => {
+    console.log('[ControlSurface] Voice state changed:', { voiceState, hasTranscript: !!lastTranscript, llmProcessing });
     if (voiceState === 'processing' && lastTranscript && !llmProcessing) {
+      console.log('[ControlSurface] Processing transcript with LLM:', lastTranscript.slice(0, 50));
       processTranscript(lastTranscript);
     }
   }, [voiceState, lastTranscript, processTranscript, llmProcessing]);
@@ -131,6 +157,38 @@ export default function ControlSurface() {
         )}
       </Suspense>
 
+      {/* Help Overlay */}
+      {showHelp && (
+        <div className="help-overlay" onClick={() => setShowHelp(false)}>
+          <div className="help-modal" onClick={(e) => e.stopPropagation()}>
+            <header className="help-header">
+              <h2>Keyboard Shortcuts</h2>
+              <button className="help-close" onClick={() => setShowHelp(false)}>&times;</button>
+            </header>
+            <div className="help-content">
+              <section className="help-section">
+                <h3>Voice</h3>
+                <div className="shortcut-row"><kbd>Esc</kbd><span>Start/Stop voice input</span></div>
+                <div className="shortcut-row"><kbd>Cmd+Shift+V</kbd><span>Enable/Disable voice</span></div>
+              </section>
+              <section className="help-section">
+                <h3>Navigation</h3>
+                <div className="shortcut-row"><kbd>Cmd+K</kbd><span>Open characters</span></div>
+                <div className="shortcut-row"><kbd>Cmd+,</kbd><span>Open settings</span></div>
+                <div className="shortcut-row"><kbd>Cmd+Shift+H</kbd><span>View history</span></div>
+                <div className="shortcut-row"><kbd>Cmd+/</kbd><span>Show this help</span></div>
+              </section>
+              <section className="help-section">
+                <h3>Actions</h3>
+                <div className="shortcut-row"><kbd>Cmd+N</kbd><span>New thought</span></div>
+                <div className="shortcut-row"><kbd>Cmd+W</kbd><span>Close window</span></div>
+                <div className="shortcut-row"><kbd>Cmd+Z</kbd><span>Undo</span></div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="control-header">
         <h1 className="app-title">Koe</h1>
         <div className="header-actions">
@@ -155,9 +213,63 @@ export default function ControlSurface() {
           >
             <SettingsIcon />
           </button>
-          <VoiceIndicator state={voiceState} />
+          <button
+            className="help-btn"
+            onClick={() => setShowHelp(true)}
+            title="Help (Cmd+/)"
+          >
+            <HelpIcon />
+          </button>
         </div>
       </header>
+
+      {/* Debug Panel - visible logging */}
+      <div style={{
+        background: '#1a1a2e',
+        padding: '10px 12px',
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        color: '#aaa',
+        borderBottom: '1px solid #333',
+        lineHeight: '1.6',
+      }}>
+        <div><strong style={{ color: '#06d6a0' }}>DEBUG PANEL</strong></div>
+        <div>Listener: {debugState?.listenerAttached ? '✅ Attached' : '❌ Not attached'}</div>
+        <div>Events received: {debugState?.eventsReceived || 0}</div>
+        <div>Last event: {debugState?.lastEventTime || 'none'}</div>
+        <div>Last text: {debugState?.lastEventText || '(none)'}</div>
+        <div>Store transcript: {lastTranscript ? `"${lastTranscript.slice(0, 40)}..."` : '(empty)'}</div>
+        {debugState?.errors?.length > 0 && (
+          <div style={{ color: '#f66' }}>Errors: {debugState.errors.join(', ')}</div>
+        )}
+      </div>
+
+      {/* Error Banner */}
+      {lastError && (
+        <div className="error-banner">
+          <span className="error-icon">⚠️</span>
+          <span className="error-message">{lastError}</span>
+          <button className="error-dismiss" onClick={clearError} title="Dismiss">
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Prominent Voice Button */}
+      <div className="voice-control-section">
+        <button
+          className={`voice-button ${voiceState === 'listening' ? 'listening' : ''} ${voiceState === 'processing' ? 'processing' : ''}`}
+          onClick={toggleVoice}
+        >
+          <MicrophoneIcon />
+          <span className="voice-button-label">
+            {voiceState === 'listening' ? 'Listening... (Esc to stop)' :
+             voiceState === 'processing' ? 'Processing...' :
+             'Click to speak (or press Esc)'}
+          </span>
+        </button>
+        <VoiceIndicator state={voiceState} size="small" />
+      </div>
 
       <main className="control-main">
         <section className="transcript-section">
@@ -198,7 +310,7 @@ export default function ControlSurface() {
           {isListening ? 'Listening...' : isProcessing ? 'Processing...' : 'Ready'}
         </span>
         <span className="keyboard-hint">
-          <kbd>Esc</kbd> voice &middot; <kbd>Cmd+K</kbd> characters &middot; <kbd>Cmd+,</kbd> settings
+          <kbd>Cmd+/</kbd> all shortcuts &middot; <kbd>Cmd+K</kbd> characters
         </span>
       </footer>
     </div>
@@ -228,6 +340,26 @@ function CharacterIcon() {
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
       <circle cx="8" cy="5" r="3" />
       <path d="M3 14c0-3 2.5-5 5-5s5 2 5 5" />
+    </svg>
+  );
+}
+
+function HelpIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M6 6c0-1.1.9-2 2-2s2 .9 2 2c0 1-1 1.5-1.5 2-.25.25-.5.5-.5 1" />
+      <circle cx="8" cy="11.5" r="0.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+function MicrophoneIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="9" y="2" width="6" height="11" rx="3" />
+      <path d="M5 10v1c0 3.87 3.13 7 7 7s7-3.13 7-7v-1" />
+      <path d="M12 18v4M8 22h8" />
     </svg>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore, getApiKey } from '../../store/settingsStore';
 
 interface APIKeyConfig {
@@ -155,14 +156,12 @@ export default function APIKeysSection() {
                   </div>
                 ) : (
                   <div className="api-key-actions-row">
-                    <a
-                      href={config.docsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
                       className="key-btn link"
+                      onClick={() => invoke('open_external_url', { url: config.docsUrl })}
                     >
                       Get Key
-                    </a>
+                    </button>
                     <button
                       className="key-btn edit"
                       onClick={() => handleEditKey(config.id)}

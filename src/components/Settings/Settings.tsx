@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { exportToJSON, importFromJSON, exportThoughtsAsMarkdown } from '../../services/exportImport';
 import { themes, themeNames } from '../../styles/themes';
 import AuthSection from './AuthSection';
 import APIKeysSection from './APIKeysSection';
+import AudioDeviceSelector from './AudioDeviceSelector';
 import './Settings.css';
 
 interface SettingsProps {
@@ -33,14 +34,30 @@ export default function Settings({ onClose }: SettingsProps) {
   const [newPositionX, setNewPositionX] = useState('100');
   const [newPositionY, setNewPositionY] = useState('100');
   const [importStatus, setImportStatus] = useState<string | null>(null);
+  const importTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup import status timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (importTimeoutRef.current) {
+        clearTimeout(importTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleAddPosition = () => {
     if (!newPositionName.trim()) return;
 
+    const x = parseInt(newPositionX, 10);
+    const y = parseInt(newPositionY, 10);
+
+    // Validate that x and y are valid numbers
+    if (isNaN(x) || isNaN(y)) return;
+
     addCustomPosition({
       name: newPositionName.trim(),
-      x: parseInt(newPositionX, 10) || 100,
-      y: parseInt(newPositionY, 10) || 100,
+      x: Math.max(0, x),  // Ensure non-negative
+      y: Math.max(0, y),
     });
 
     setNewPositionName('');
@@ -56,16 +73,21 @@ export default function Settings({ onClose }: SettingsProps) {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
 
+      // Clear any existing timeout
+      if (importTimeoutRef.current) {
+        clearTimeout(importTimeoutRef.current);
+      }
+
       try {
         setImportStatus('Importing...');
         const result = await importFromJSON(file, mode);
         setImportStatus(
           `Imported ${result.thoughtsImported} thoughts, ${result.windowsImported} windows`
         );
-        setTimeout(() => setImportStatus(null), 3000);
+        importTimeoutRef.current = setTimeout(() => setImportStatus(null), 3000);
       } catch (err) {
         setImportStatus(`Error: ${(err as Error).message}`);
-        setTimeout(() => setImportStatus(null), 3000);
+        importTimeoutRef.current = setTimeout(() => setImportStatus(null), 3000);
       }
     };
     input.click();
@@ -142,6 +164,7 @@ export default function Settings({ onClose }: SettingsProps) {
           {/* Voice */}
           <section className="settings-section">
             <h3>Voice</h3>
+            <AudioDeviceSelector />
             <div className="setting-row">
               <label className="toggle-label">
                 <span>Voice Input</span>

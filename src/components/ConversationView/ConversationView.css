@@ -180,8 +180,8 @@
 .pw-portrait-placeholder {
   width: 200px;
   height: 250px;
-  background: var(--bg-tertiary);
-  border: 2px dashed var(--border-color);
+  background: linear-gradient(135deg, #1a1a24 0%, #22222e 100%);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -191,7 +191,33 @@
 .portrait-initial {
   font-size: 72px;
   font-weight: 700;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Back Button */
+.pw-back-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  transition: all 0.2s ease;
+}
+
+.pw-back-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
 }
 
 .pw-stop-speaking {
@@ -391,6 +417,79 @@
   z-index: 10;
 }
 
+/* Voice Input */
+.pw-voice-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.pw-voice-btn:hover {
+  background: var(--bg-highlight);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
+.pw-voice-btn.listening {
+  background: var(--voice-listening);
+  border-color: var(--voice-listening);
+  color: white;
+  animation: pulse-voice 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-voice {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.9; }
+}
+
+.pw-voice-listening {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--voice-listening);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.pw-voice-indicator {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--voice-listening);
+}
+
+.pw-voice-indicator .pulse-ring {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--voice-listening);
+  border-radius: 50%;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+.pw-voice-text {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-style: italic;
+}
+
 /* ============================================================================
    Visual Novel Style
    ============================================================================ */
@@ -500,7 +599,7 @@
 .sprite-silhouette {
   width: 150px;
   height: 220px;
-  background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+  background: linear-gradient(180deg, #1a1a24 0%, #12121a 100%);
   border-radius: 75px 75px 0 0;
   display: flex;
   align-items: center;
@@ -1209,4 +1308,193 @@
   border-radius: 4px;
   color: var(--text-secondary);
   width: 100%;
+}
+
+/* Chat Bubble - Back Button */
+.cb-back-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.cb-back-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* Chat Bubble - Voice Input */
+.cb-voice-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.cb-voice-btn:hover {
+  background: var(--bg-highlight);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
+.cb-voice-btn.listening {
+  background: var(--voice-listening);
+  border-color: var(--voice-listening);
+  color: white;
+  animation: pulse-voice 1.5s ease-in-out infinite;
+}
+
+.cb-voice-listening {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(6, 214, 160, 0.1);
+  border: 1px solid var(--voice-listening);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.cb-voice-indicator {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--voice-listening);
+}
+
+.cb-voice-indicator .pulse-ring {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--voice-listening);
+  border-radius: 50%;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+.cb-voice-text {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+/* Visual Novel - Back Button */
+.vn-back-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  transition: all 0.2s ease;
+}
+
+.vn-back-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
+/* Visual Novel - Voice Input */
+.vn-voice-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 20, 30, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
+
+.vn-voice-btn:hover {
+  background: rgba(30, 30, 40, 0.9);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
+.vn-voice-btn.listening {
+  background: var(--voice-listening);
+  border-color: var(--voice-listening);
+  color: white;
+  animation: pulse-voice 1.5s ease-in-out infinite;
+}
+
+.vn-voice-listening {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(6, 214, 160, 0.1);
+  border: 1px solid var(--voice-listening);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  backdrop-filter: blur(4px);
+}
+
+.vn-voice-indicator {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--voice-listening);
+}
+
+.vn-voice-indicator .pulse-ring {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--voice-listening);
+  border-radius: 50%;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+.vn-voice-text {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-style: italic;
+}
+
+.vn-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.vn-hint kbd {
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  font-size: 10px;
 }

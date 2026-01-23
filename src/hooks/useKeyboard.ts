@@ -9,6 +9,7 @@ import { performUndo } from '../services/llm';
 interface KeyboardOptions {
   onOpenSettings?: () => void;
   onOpenHistory?: () => void;
+  onToggleVoice?: () => void;
 }
 
 export function useKeyboard(options: KeyboardOptions = {}) {
@@ -58,7 +59,12 @@ export function useKeyboard(options: KeyboardOptions = {}) {
       // Escape always works (toggle voice)
       if (e.key === 'Escape') {
         e.preventDefault();
-        toggleVoice();
+        // Use callback if provided, otherwise use internal toggleVoice
+        if (options.onToggleVoice) {
+          options.onToggleVoice();
+        } else {
+          toggleVoice();
+        }
         return;
       }
 

@@ -3,6 +3,7 @@ import { useCharacterStore } from '../../store/characterStore';
 import { speak, stopSpeaking, isSpeaking, isElevenLabsConfigured } from '../../services/elevenLabs';
 import { generateCharacterPortrait, isImageGenAvailable } from '../../services/imageGen';
 import { getApiKey } from '../../store/settingsStore';
+import { useVoice } from '../../hooks/useVoice';
 // Character type is used via useCharacterStore
 import PhoenixWrightStyle from './PhoenixWrightStyle';
 import VisualNovelStyle from './VisualNovelStyle';
@@ -35,6 +36,15 @@ export default function ConversationView({
   const { getCharacter, updateCharacter } = useCharacterStore();
   const character = getCharacter(characterId);
 
+  // Voice input
+  const {
+    voiceState,
+    lastTranscript,
+    isListening,
+    startListening,
+    stopListening
+  } = useVoice();
+
   // State
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -48,6 +58,7 @@ export default function ConversationView({
 
   // Refs
   const abortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   // Load character portrait
@@ -90,7 +101,9 @@ export default function ConversationView({
 
   // Cleanup on unmount
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       abortRef.current?.abort();
       stopSpeaking();
     };
@@ -120,7 +133,7 @@ export default function ConversationView({
         // Get API key
         const apiKey = getAnthropicKey();
         if (!apiKey) {
-          throw new Error('Anthropic API key not configured. Set it in Settings.');
+          throw new Error('Anthropic API key not configured. Press Cmd+, to open Settings, then add your key in the "API Keys" section.');
         }
 
         // Build conversation history for context
@@ -175,7 +188,9 @@ export default function ConversationView({
                 const event = JSON.parse(data);
                 if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
                   fullText += event.delta.text;
-                  setStreamingText(fullText);
+                  if (mountedRef.current) {
+                    setStreamingText(fullText);
+                  }
                 }
               } catch {
                 // Skip invalid JSON
@@ -185,6 +200,8 @@ export default function ConversationView({
         }
 
         // Add character response
+        if (!mountedRef.current) return;
+
         const characterMessage: Message = {
           id: crypto.randomUUID(),
           role: 'character',
@@ -197,7 +214,7 @@ export default function ConversationView({
         setIsTyping(false);
 
         // Speak the response if ElevenLabs is configured
-        if (isElevenLabsConfigured() && character.voiceSettings.voiceId) {
+        if (isElevenLabsConfigured() && character.voiceSettings.voiceId && mountedRef.current) {
           setIsSpeakingState(true);
           try {
             await speak(fullText, character.voiceSettings.voiceId, {
@@ -209,19 +226,25 @@ export default function ConversationView({
           } catch (err) {
             console.error('TTS error:', err);
           } finally {
-            setIsSpeakingState(false);
+            if (mountedRef.current) {
+              setIsSpeakingState(false);
+            }
           }
         }
       } catch (err) {
         if ((err as Error).name === 'AbortError') {
-          setIsTyping(false);
-          setStreamingText('');
+          if (mountedRef.current) {
+            setIsTyping(false);
+            setStreamingText('');
+          }
           return;
         }
         console.error('Chat error:', err);
-        setError((err as Error).message);
-        setIsTyping(false);
-        setStreamingText('');
+        if (mountedRef.current) {
+          setError((err as Error).message);
+          setIsTyping(false);
+          setStreamingText('');
+        }
       }
     },
     [character, messages]
@@ -235,6 +258,29 @@ export default function ConversationView({
     },
     [inputText, sendMessage]
   );
+
+  // Handle voice transcripts - auto-send when processing completes
+  const lastProcessedTranscript = useRef('');
+  useEffect(() => {
+    console.log('[ConversationView] Voice state:', { voiceState, hasTranscript: !!lastTranscript, isTyping });
+    if (voiceState === 'processing' && lastTranscript && lastTranscript !== lastProcessedTranscript.current) {
+      // Don't send if already typing (waiting for response)
+      if (!isTyping) {
+        console.log('[ConversationView] Sending voice transcript as message:', lastTranscript.slice(0, 50));
+        lastProcessedTranscript.current = lastTranscript;
+        sendMessage(lastTranscript);
+      }
+    }
+  }, [voiceState, lastTranscript, isTyping, sendMessage]);
+
+  // Toggle voice listening
+  const toggleVoice = useCallback(() => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  }, [isListening, startListening, stopListening]);
 
   // Handle key press
   const handleKeyDown = useCallback(
@@ -271,23 +317,34 @@ export default function ConversationView({
   // Keyboard shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && e.shiftKey) {
+        // Shift+Escape to close
+        e.preventDefault();
+        onClose();
+      } else if (e.key === 'Escape') {
         if (isTyping) {
           handleCancel();
         } else if (isSpeaking()) {
           handleStopSpeaking();
+        } else if (isListening) {
+          // Stop voice listening
+          stopListening();
         } else {
-          onClose();
+          // Toggle voice on if nothing else happening
+          startListening();
         }
       } else if (e.key === 'd' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         cycleDesign();
+      } else if (e.key === 'w' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        onClose();
       }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isTyping, handleCancel, handleStopSpeaking, onClose, cycleDesign]);
+  }, [isTyping, isListening, handleCancel, handleStopSpeaking, startListening, stopListening, onClose, cycleDesign]);
 
   if (!character) {
     return (
@@ -310,6 +367,8 @@ export default function ConversationView({
     portraitUrl,
     isGeneratingPortrait,
     isSpeaking: isSpeakingState,
+    isListening,
+    voiceTranscript: isListening ? lastTranscript : undefined,
     error,
     messagesEndRef,
     onInputChange: setInputText,
@@ -317,6 +376,8 @@ export default function ConversationView({
     onKeyDown: handleKeyDown,
     onStopSpeaking: handleStopSpeaking,
     onCancel: handleCancel,
+    onToggleVoice: toggleVoice,
+    onClose,
   };
 
   return (
