@@ -211,7 +211,7 @@ export default function VisualNovelStyle({
         </div>
 
         {/* Text Box */}
-        <div className="vn-textbox">
+        <div className="vn-textbox" aria-live="polite" aria-label="Character dialogue">
           {error ? (
             <div className="vn-error">
               <p>Error: {error}</p>

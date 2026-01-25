@@ -125,6 +125,7 @@ export function yMapToWindow(ymap: Y.Map<unknown>): WindowState {
     width: ymap.get('width') as number,
     height: ymap.get('height') as number,
     viewMode: ymap.get('viewMode') as WindowState['viewMode'],
+    displayId: ymap.get('displayId') as number | undefined,
   };
 }
 
@@ -138,6 +139,9 @@ export function saveWindowState(window: WindowState): void {
   ymap.set('width', window.width);
   ymap.set('height', window.height);
   ymap.set('viewMode', window.viewMode);
+  if (window.displayId !== undefined) {
+    ymap.set('displayId', window.displayId);
+  }
   windowsMap.set(window.id, ymap);
 }
 

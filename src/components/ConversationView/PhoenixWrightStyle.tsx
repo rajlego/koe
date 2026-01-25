@@ -180,7 +180,7 @@ export default function PhoenixWrightStyle({
         </div>
 
         {/* Dialogue Box */}
-        <div className="pw-dialogue-box">
+        <div className="pw-dialogue-box" aria-live="polite" aria-label="Character dialogue">
           {error ? (
             <div className="pw-error">
               <span>Error: {error}</span>

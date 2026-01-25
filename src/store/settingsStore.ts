@@ -40,6 +40,9 @@ interface SettingsState {
   // Setup
   setupCompleted: boolean;
 
+  // API Cost Protection
+  apiCostLimit: number;  // Session cost limit in dollars
+
   // Actions
   setDisplayMode: (mode: 'control' | 'integrated') => void;
   setTheme: (theme: ThemeName) => void;
@@ -56,6 +59,7 @@ interface SettingsState {
   clearApiKey: (provider: keyof SettingsState['apiKeys']) => void;
   setImageProvider: (provider: SettingsState['imageProvider']) => void;
   setSetupCompleted: (completed: boolean) => void;
+  setApiCostLimit: (limit: number) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -82,6 +86,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
       imageProvider: 'fal',
       setupCompleted: false,
+      apiCostLimit: 1.00,  // Default $1 session limit
 
       // Actions
       setDisplayMode: (mode) => set({ displayMode: mode }),
@@ -120,6 +125,8 @@ export const useSettingsStore = create<SettingsState>()(
       setImageProvider: (provider) => set({ imageProvider: provider }),
 
       setSetupCompleted: (completed) => set({ setupCompleted: completed }),
+
+      setApiCostLimit: (limit) => set({ apiCostLimit: Math.max(0.10, limit) }),  // Minimum $0.10
     }),
     {
       name: 'koe-settings',

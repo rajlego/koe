@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../../store/settingsStore';
 import { exportToJSON, importFromJSON, exportThoughtsAsMarkdown } from '../../services/exportImport';
+import { getSessionStats, resetSessionStats } from '../../services/llm';
 import { themes, themeNames } from '../../styles/themes';
 import AuthSection from './AuthSection';
 import APIKeysSection from './APIKeysSection';
@@ -28,6 +30,8 @@ export default function Settings({ onClose }: SettingsProps) {
     customPositions,
     addCustomPosition,
     removeCustomPosition,
+    apiCostLimit,
+    setApiCostLimit,
   } = useSettingsStore();
 
   const [newPositionName, setNewPositionName] = useState('');
@@ -35,6 +39,23 @@ export default function Settings({ onClose }: SettingsProps) {
   const [newPositionY, setNewPositionY] = useState('100');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const importTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [talonAvailable, setTalonAvailable] = useState<boolean | null>(null);
+  const [sessionStats, setSessionStats] = useState(getSessionStats());
+
+  // Check Talon availability on mount
+  useEffect(() => {
+    invoke<boolean>('is_talon_available')
+      .then(setTalonAvailable)
+      .catch(() => setTalonAvailable(false));
+  }, []);
+
+  // Refresh session stats periodically when Settings is open
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSessionStats(getSessionStats());
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Cleanup import status timeout on unmount
   useEffect(() => {
@@ -161,6 +182,53 @@ export default function Settings({ onClose }: SettingsProps) {
           {/* API Keys & Image Provider */}
           <APIKeysSection />
 
+          {/* API Cost Protection */}
+          <section className="settings-section">
+            <h3>API Cost Protection</h3>
+            <p className="section-description">
+              Prevent runaway API costs with rate limiting and session limits.
+            </p>
+
+            <div className="cost-stats">
+              <div className="stat-row">
+                <span className="stat-label">Session Cost:</span>
+                <span className="stat-value">${sessionStats.cost.toFixed(4)}</span>
+              </div>
+              <div className="stat-row">
+                <span className="stat-label">Requests:</span>
+                <span className="stat-value">{sessionStats.requests}</span>
+              </div>
+            </div>
+
+            <div className="setting-row">
+              <label className="cost-limit-label">
+                <span>Session Limit ($)</span>
+                <input
+                  type="number"
+                  min="0.10"
+                  max="100"
+                  step="0.10"
+                  value={apiCostLimit}
+                  onChange={(e) => setApiCostLimit(parseFloat(e.target.value) || 1.00)}
+                  className="cost-limit-input"
+                />
+              </label>
+              <p className="setting-hint">
+                API calls blocked after this amount. Rate limit: 10 requests/minute.
+              </p>
+            </div>
+
+            <button
+              className="action-btn secondary"
+              onClick={() => {
+                resetSessionStats();
+                setSessionStats(getSessionStats());
+              }}
+            >
+              Reset Session Stats
+            </button>
+          </section>
+
           {/* Voice */}
           <section className="settings-section">
             <h3>Voice</h3>
@@ -197,6 +265,41 @@ export default function Settings({ onClose }: SettingsProps) {
                 />
                 <span className="toggle-switch" />
               </label>
+            </div>
+          </section>
+
+          {/* OS Control (Talon) */}
+          <section className="settings-section">
+            <h3>OS Control (Talon Voice)</h3>
+            <p className="section-description">
+              Talon Voice enables OS-level control: keyboard shortcuts, app switching, mouse control via voice.
+            </p>
+            <div className="talon-status">
+              {talonAvailable === null ? (
+                <span className="status-checking">Checking Talon status...</span>
+              ) : talonAvailable ? (
+                <span className="status-ok">✓ Talon Voice detected</span>
+              ) : (
+                <div className="status-missing">
+                  <span className="status-warning">✗ Talon Voice not installed</span>
+                  <p className="status-hint">
+                    Install Talon for full OS control capabilities like sending keystrokes,
+                    switching apps, and mouse control via voice.
+                  </p>
+                  <a
+                    href="https://talonvoice.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="talon-link"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      invoke('open_external_url', { url: 'https://talonvoice.com' });
+                    }}
+                  >
+                    Download Talon Voice →
+                  </a>
+                </div>
+              )}
             </div>
           </section>
 

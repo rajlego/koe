@@ -115,7 +115,7 @@ export default function ChatBubbleStyle({
       </div>
 
       {/* Messages */}
-      <div className="cb-messages" ref={messagesContainerRef}>
+      <div className="cb-messages" ref={messagesContainerRef} aria-live="polite" aria-label="Conversation messages">
         {/* Welcome message if no messages */}
         {messages.length === 0 && !isTyping && (
           <div className="cb-welcome">

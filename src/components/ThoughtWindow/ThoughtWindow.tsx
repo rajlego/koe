@@ -8,6 +8,7 @@ import type { Thought } from '../../models/types';
 import VoiceIndicator from '../common/VoiceIndicator';
 import MarkdownRenderer from '../common/MarkdownRenderer';
 import TagInput, { TagList } from '../common/TagInput';
+import WindowBadge from './WindowBadge';
 import './ThoughtWindow.css';
 
 interface ThoughtWindowProps {
@@ -93,6 +94,9 @@ export default function ThoughtWindow({ thoughtId: propThoughtId, isMainWindow }
 
   return (
     <div className={`thought-window ${isMainWindow ? 'main-window' : ''}`}>
+      {/* Window badge showing W1, W2, etc. - only for separate windows */}
+      {!isMainWindow && <WindowBadge windowId={windowLabel} />}
+
       {isMainWindow && (
         <header className="thought-header">
           <VoiceIndicator state={voiceState} size="small" />

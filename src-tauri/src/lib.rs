@@ -1,4 +1,5 @@
 mod voice;
+mod talon;
 
 #[tauri::command]
 fn start_voice_capture(app: tauri::AppHandle) -> Result<(), String> {
@@ -83,6 +84,18 @@ fn frontend_log(level: String, message: String) {
     }
 }
 
+/// Check if Talon Voice is installed and available
+#[tauri::command]
+fn is_talon_available() -> bool {
+    talon::is_talon_installed()
+}
+
+/// Execute a Talon command via the REPL
+#[tauri::command]
+fn run_talon(code: String) -> Result<String, String> {
+    talon::execute_talon(&code)
+}
+
 #[tauri::command]
 fn open_external_url(url: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
@@ -125,6 +138,8 @@ pub fn run() {
             open_external_url,
             frontend_log,
             test_emit_transcript,
+            is_talon_available,
+            run_talon,
         ])
         .setup(|_app| {
             // Initialize voice capture system

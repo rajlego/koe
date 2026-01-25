@@ -20,6 +20,7 @@ export interface WindowState {
   width: number;
   height: number;
   viewMode: ViewMode;
+  displayId?: number; // W1, W2, etc. for voice reference
 }
 
 export type ViewMode = 'full' | 'condensed' | 'title-only';

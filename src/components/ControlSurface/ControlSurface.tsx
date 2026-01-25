@@ -1,10 +1,10 @@
-import { useEffect, useState, useMemo, useCallback, lazy, Suspense, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useVoice } from '../../hooks/useVoice';
 import { useKeyboard } from '../../hooks/useKeyboard';
 import { useLLM } from '../../services/llm';
 import { getAllThoughts, onThoughtsChange } from '../../sync';
 import { useSettingsStore, getApiKey } from '../../store/settingsStore';
+import { useWindowStore } from '../../store/windowStore';
 import type { Thought } from '../../models/types';
 import VoiceIndicator from '../common/VoiceIndicator';
 import TranscriptDisplay from '../common/TranscriptDisplay';
@@ -20,7 +20,7 @@ const ConversationView = lazy(() => import('../ConversationView/ConversationView
 const SetupWizard = lazy(() => import('../SetupWizard'));
 
 export default function ControlSurface() {
-  const { voiceState, lastTranscript, lastError, isListening, isProcessing, startListening, stopListening, clearError, debugState } = useVoice();
+  const { voiceState, lastTranscript, lastError, isListening, isProcessing, isDictating, dictationTargetWindowId, startListening, stopListening, clearError, debugState } = useVoice();
   const { processTranscript, isProcessing: llmProcessing, lastResponse, streamingText } = useLLM();
   const { setupCompleted, setSetupCompleted } = useSettingsStore();
   const [showHelp, setShowHelp] = useState(false);
@@ -34,24 +34,6 @@ export default function ControlSurface() {
 
   // Show setup wizard if not completed and no Anthropic key
   const showSetupWizard = !setupCompleted && !getApiKey('anthropic');
-
-  // Auto-run test on mount in dev mode to verify event flow
-  const hasTestedRef = useRef(false);
-  useEffect(() => {
-    if (hasTestedRef.current) return;
-    if (!debugState?.listenerAttached) return;
-
-    hasTestedRef.current = true;
-    // Wait a moment for everything to settle, then run auto-test
-    const timer = setTimeout(() => {
-      console.log('[AutoTest] Running automatic event flow test...');
-      invoke('test_emit_transcript', { text: '[AutoTest] Automatic test transcript at ' + new Date().toLocaleTimeString() })
-        .then(() => console.log('[AutoTest] Test event sent successfully'))
-        .catch((e) => console.error('[AutoTest] Test failed:', e));
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [debugState?.listenerAttached]);
 
   const handleSetupComplete = useCallback(() => {
     setSetupCompleted(true);
@@ -215,6 +197,7 @@ export default function ControlSurface() {
             className="characters-btn"
             onClick={() => setShowCharacters(true)}
             title="Characters (Cmd+K)"
+            aria-label="Open characters"
           >
             <CharacterIcon />
           </button>
@@ -222,6 +205,7 @@ export default function ControlSurface() {
             className="history-btn"
             onClick={() => setShowHistory(true)}
             title="Thought History (Cmd+Shift+H)"
+            aria-label="View thought history"
           >
             <HistoryIcon />
           </button>
@@ -229,6 +213,7 @@ export default function ControlSurface() {
             className="settings-btn"
             onClick={() => setShowSettings(true)}
             title="Settings (Cmd+,)"
+            aria-label="Open settings"
           >
             <SettingsIcon />
           </button>
@@ -236,13 +221,25 @@ export default function ControlSurface() {
             className="help-btn"
             onClick={() => setShowHelp(true)}
             title="Help (Cmd+/)"
+            aria-label="Show help"
           >
             <HelpIcon />
           </button>
         </div>
       </header>
 
-      {/* Debug Panel - visible logging */}
+      {/* Dictation Mode Indicator */}
+      {isDictating && (
+        <div className="dictation-banner">
+          <span className="dictation-icon">🎙️</span>
+          <span className="dictation-text">
+            DICTATING to W{dictationTargetWindowId ? useWindowStore.getState().getDisplayId(dictationTargetWindowId) : '?'}
+          </span>
+          <span className="dictation-hint">Say "stop dictating" to exit</span>
+        </div>
+      )}
+
+      {/* Debug Panel */}
       <div style={{
         background: '#1a1a2e',
         padding: '10px 12px',
@@ -252,33 +249,15 @@ export default function ControlSurface() {
         borderBottom: '1px solid #333',
         lineHeight: '1.6',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
           <strong style={{ color: '#06d6a0' }}>DEBUG PANEL</strong>
-          <button
-            onClick={() => {
-              invoke('test_emit_transcript', { text: 'Test transcript at ' + new Date().toLocaleTimeString() })
-                .then(() => console.log('Test transcript sent'))
-                .catch((e) => console.error('Test failed:', e));
-            }}
-            style={{
-              background: '#06d6a0',
-              color: '#000',
-              border: 'none',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '10px',
-              fontWeight: 'bold',
-            }}
-          >
-            TEST EVENT
-          </button>
         </div>
         <div>Listener: {debugState?.listenerAttached ? '✅ Attached' : '❌ Not attached'}</div>
         <div>Events received: {debugState?.eventsReceived || 0}</div>
         <div>Last event: {debugState?.lastEventTime || 'none'}</div>
         <div>Last text: {debugState?.lastEventText || '(none)'}</div>
         <div>Store transcript: {lastTranscript ? `"${lastTranscript.slice(0, 40)}..."` : '(empty)'}</div>
+        <div>Voice mode: {isDictating ? '🎤 DICTATE' : '⚡ COMMAND'}</div>
         {debugState?.errors?.length > 0 && (
           <div style={{ color: '#f66' }}>Errors: {debugState.errors.join(', ')}</div>
         )}

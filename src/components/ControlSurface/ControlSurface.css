@@ -366,3 +366,48 @@
 .error-dismiss:hover {
   opacity: 1;
 }
+
+/* Dictation Mode Banner */
+.dictation-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(90deg, #3d1f2f 0%, #2f1f3d 100%);
+  border-bottom: 2px solid #ff4488;
+  color: #ff88aa;
+  animation: dictation-pulse 2s ease-in-out infinite;
+}
+
+.dictation-icon {
+  font-size: 18px;
+  animation: mic-bounce 1s ease-in-out infinite;
+}
+
+.dictation-text {
+  font-weight: 600;
+  font-size: 13px;
+  color: #ffaacc;
+  letter-spacing: 1px;
+}
+
+.dictation-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: #aa7799;
+  font-style: italic;
+}
+
+@keyframes dictation-pulse {
+  0%, 100% {
+    background: linear-gradient(90deg, #3d1f2f 0%, #2f1f3d 100%);
+  }
+  50% {
+    background: linear-gradient(90deg, #4d2f3f 0%, #3f2f4d 100%);
+  }
+}
+
+@keyframes mic-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}

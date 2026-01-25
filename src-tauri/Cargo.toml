@@ -35,6 +35,9 @@ base64 = "0.21"
 # Logging
 chrono = "0.4"
 
+# System paths (for Talon integration)
+dirs = "5.0"
+
 [features]
 default = []
 whisper-local = ["whisper-rs"]

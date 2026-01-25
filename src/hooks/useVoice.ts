@@ -3,9 +3,33 @@ import { listen } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { useWindowStore } from '../store/windowStore';
 import { useSettingsStore, getApiKey } from '../store/settingsStore';
+import { getThought, updateThought } from '../sync';
 import { sounds } from '../services/sounds';
 import { logger } from '../services/logger';
 import type { VoiceState } from '../models/types';
+
+// Punctuation commands for dictation mode
+const PUNCTUATION_MAP: Record<string, string> = {
+  'period': '.',
+  'full stop': '.',
+  'comma': ',',
+  'question mark': '?',
+  'exclamation mark': '!',
+  'exclamation point': '!',
+  'colon': ':',
+  'semicolon': ';',
+  'dash': '—',
+  'hyphen': '-',
+  'open quote': '"',
+  'close quote': '"',
+  'open paren': '(',
+  'close paren': ')',
+  'new line': '\n',
+  'new paragraph': '\n\n',
+};
+
+// Commands that exit dictation mode
+const EXIT_COMMANDS = ['stop dictating', 'command mode', 'hey koe', 'hey co', 'hey coe'];
 
 // Debug state for visible logging
 interface DebugState {
@@ -26,7 +50,17 @@ export function useVoice() {
   const voiceEnabled = useSettingsStore((s) => s.voiceEnabled);
   const audioInputDevice = useSettingsStore((s) => s.audioInputDevice);
   const apiKeys = useSettingsStore((s) => s.apiKeys);
-  const { setVoiceState, setLastTranscript, setLastError, voiceState, lastTranscript, lastError } = useWindowStore();
+  const {
+    setVoiceState,
+    setLastTranscript,
+    setLastError,
+    setVoiceMode,
+    voiceState,
+    lastTranscript,
+    lastError,
+    voiceMode,
+    dictationTargetWindowId,
+  } = useWindowStore();
 
   // Debug state for visible logging
   const [debugState, setDebugState] = useState<DebugState>({
@@ -114,6 +148,53 @@ export function useVoice() {
               lastEventTime: new Date().toLocaleTimeString(),
               lastEventText: text.slice(0, 50),
             }));
+
+            // Get current state
+            const currentState = useWindowStore.getState();
+            const currentVoiceMode = currentState.voiceMode;
+            const targetWindowId = currentState.dictationTargetWindowId;
+
+            // Check for exit commands in dictation mode
+            if (currentVoiceMode === 'dictate') {
+              const lowerText = text.toLowerCase().trim();
+              if (EXIT_COMMANDS.some(cmd => lowerText.includes(cmd))) {
+                logger.info('[Voice] Exiting dictation mode');
+                setVoiceMode('command', null);
+                setLastTranscript(text);
+                sounds.success();
+                return;
+              }
+
+              // Handle dictation: append text to target thought
+              if (targetWindowId && isFinal) {
+                const window = currentState.openWindows.get(targetWindowId);
+                if (window) {
+                  const thought = getThought(window.thoughtId);
+                  if (thought) {
+                    // Process punctuation commands
+                    let processedText = text;
+                    for (const [cmd, replacement] of Object.entries(PUNCTUATION_MAP)) {
+                      const regex = new RegExp(`\\b${cmd}\\b`, 'gi');
+                      processedText = processedText.replace(regex, replacement);
+                    }
+
+                    // Append with space (or directly if punctuation at end of thought)
+                    const lastChar = thought.content.slice(-1);
+                    const separator = lastChar && !'\n.!?'.includes(lastChar) ? ' ' : '';
+                    const newContent = thought.content + separator + processedText;
+
+                    updateThought(window.thoughtId, { content: newContent });
+                    logger.info('[Voice] Appended to thought in dictation mode');
+                    sounds.success();
+                  }
+                }
+              }
+
+              // Don't set transcript or trigger LLM processing in dictation mode
+              return;
+            }
+
+            // Command mode: normal processing
             setLastTranscript(text);
 
             if (isFinal) {
@@ -178,7 +259,7 @@ export function useVoice() {
       mounted = false;
       cleanup?.();
     };
-  }, [setVoiceState, setLastTranscript, setLastError]);
+  }, [setVoiceState, setLastTranscript, setLastError, setVoiceMode]);
 
   // Clear error
   const clearError = useCallback(() => {
@@ -192,11 +273,14 @@ export function useVoice() {
     voiceState,
     lastTranscript,
     lastError,
+    voiceMode,
+    dictationTargetWindowId,
     startListening,
     stopListening,
     clearError,
     isListening: voiceState === 'listening',
     isProcessing: voiceState === 'processing',
+    isDictating: voiceMode === 'dictate',
     debugState, // Expose debug state for visible debugging
   };
 }
