@@ -37,8 +37,15 @@ fn stop_speaking() -> Result<(), String> {
 }
 
 #[tauri::command]
-fn configure_whisper(api_key: Option<String>, use_local: bool, model_path: Option<String>) {
-    voice::configure_whisper(api_key, use_local, model_path);
+fn configure_whisper(
+    api_key: Option<String>,
+    use_local: bool,
+    model_path: Option<String>,
+    provider: Option<String>,
+    model: Option<String>,
+    groq_api_key: Option<String>,
+) {
+    voice::configure_whisper(api_key, use_local, model_path, provider, model, groq_api_key);
 }
 
 #[tauri::command]

@@ -16,6 +16,9 @@ struct WhisperConfig {
     api_key: Option<String>,
     use_local: bool,
     model_path: Option<String>,
+    provider: String,       // "openai" or "groq"
+    model: String,          // e.g. "whisper-1", "whisper-large-v3-turbo"
+    groq_api_key: Option<String>,
 }
 
 struct DeviceConfig {
@@ -31,6 +34,9 @@ lazy_static::lazy_static! {
         api_key: None,
         use_local: false,
         model_path: None,
+        provider: "openai".to_string(),
+        model: "whisper-1".to_string(),
+        groq_api_key: None,
     }));
     static ref DEVICE_CONFIG: Arc<Mutex<DeviceConfig>> = Arc::new(Mutex::new(DeviceConfig {
         selected_device: None,
@@ -59,12 +65,26 @@ pub fn init() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Configure the Whisper API key for transcription
-pub fn configure_whisper(api_key: Option<String>, use_local: bool, model_path: Option<String>) {
+/// Configure transcription settings
+pub fn configure_whisper(
+    api_key: Option<String>,
+    use_local: bool,
+    model_path: Option<String>,
+    provider: Option<String>,
+    model: Option<String>,
+    groq_api_key: Option<String>,
+) {
     let mut config = WHISPER_CONFIG.lock();
     config.api_key = api_key;
     config.use_local = use_local;
     config.model_path = model_path;
+    if let Some(p) = provider {
+        config.provider = p;
+    }
+    if let Some(m) = model {
+        config.model = m;
+    }
+    config.groq_api_key = groq_api_key;
 }
 
 /// List available audio input devices
@@ -192,8 +212,8 @@ pub fn start_capture(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // Simple VAD: check if we have enough audio and energy
-            // Process every ~2 seconds of audio
-            let samples_per_chunk = buffer.sample_rate as usize * 2;
+            // Process every ~1 second of audio (reduced from 2s for lower latency)
+            let samples_per_chunk = buffer.sample_rate as usize * 1;
             if buffer.samples.len() >= samples_per_chunk {
                 // Calculate RMS energy
                 let rms: f32 = (buffer.samples.iter().map(|s| s * s).sum::<f32>()
@@ -321,16 +341,30 @@ fn transcribe_audio(samples: &[f32], sample_rate: u32) -> Result<Option<String>,
         }
     }
 
-    // Fall back to OpenAI Whisper API
-    if let Some(ref api_key) = config.api_key {
-        return transcribe_openai(&samples_16k, rate_16k, api_key);
+    // Route to configured provider
+    match config.provider.as_str() {
+        "groq" => {
+            if let Some(ref api_key) = config.groq_api_key {
+                return transcribe_groq(&samples_16k, rate_16k, api_key, &config.model);
+            }
+            // Fall through to OpenAI if no Groq key
+            if let Some(ref api_key) = config.api_key {
+                return transcribe_openai(&samples_16k, rate_16k, api_key);
+            }
+        }
+        _ => {
+            // "openai" or default
+            if let Some(ref api_key) = config.api_key {
+                return transcribe_openai(&samples_16k, rate_16k, api_key);
+            }
+        }
     }
 
     // No transcription method available - return placeholder
     let duration_secs = samples_16k.len() as f32 / rate_16k as f32;
     if duration_secs > 0.5 {
         Ok(Some(format!(
-            "[Audio: {:.1}s - configure OpenAI API key in Settings for transcription]",
+            "[Audio: {:.1}s - configure API key in Settings for transcription]",
             duration_secs
         )))
     } else {
@@ -367,6 +401,47 @@ fn transcribe_openai(samples: &[f32], sample_rate: u32, api_key: &str) -> Result
         let status = response.status();
         let text = response.text().unwrap_or_default();
         return Err(format!("API error {}: {}", status, text));
+    }
+
+    let result: serde_json::Value = response.json().map_err(|e| e.to_string())?;
+
+    Ok(result["text"].as_str().map(|s| s.to_string()))
+}
+
+/// Transcribe using Groq Whisper API (faster inference)
+fn transcribe_groq(samples: &[f32], sample_rate: u32, api_key: &str, model: &str) -> Result<Option<String>, String> {
+    let wav_data = samples_to_wav(samples, sample_rate)?;
+
+    let client = reqwest::blocking::Client::new();
+
+    let part = reqwest::blocking::multipart::Part::bytes(wav_data)
+        .file_name("audio.wav")
+        .mime_str("audio/wav")
+        .map_err(|e| e.to_string())?;
+
+    // Groq uses the same API format as OpenAI
+    let groq_model = if model.is_empty() || model == "whisper-1" {
+        "whisper-large-v3-turbo" // Default Groq model (fastest)
+    } else {
+        model
+    };
+
+    let form = reqwest::blocking::multipart::Form::new()
+        .part("file", part)
+        .text("model", groq_model.to_string())
+        .text("language", "en");
+
+    let response = client
+        .post("https://api.groq.com/openai/v1/audio/transcriptions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .multipart(form)
+        .send()
+        .map_err(|e| format!("Groq request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().unwrap_or_default();
+        return Err(format!("Groq API error {}: {}", status, text));
     }
 
     let result: serde_json::Value = response.json().map_err(|e| e.to_string())?;
@@ -470,9 +545,18 @@ mod tests {
 
     #[test]
     fn test_configure_whisper() {
-        configure_whisper(Some("test-key".to_string()), false, None);
+        configure_whisper(Some("test-key".to_string()), false, None, None, None, None);
         let config = WHISPER_CONFIG.lock();
         assert_eq!(config.api_key, Some("test-key".to_string()));
         assert!(!config.use_local);
+    }
+
+    #[test]
+    fn test_configure_whisper_groq() {
+        configure_whisper(None, false, None, Some("groq".to_string()), Some("whisper-large-v3-turbo".to_string()), Some("groq-key".to_string()));
+        let config = WHISPER_CONFIG.lock();
+        assert_eq!(config.provider, "groq");
+        assert_eq!(config.model, "whisper-large-v3-turbo");
+        assert_eq!(config.groq_api_key, Some("groq-key".to_string()));
     }
 }

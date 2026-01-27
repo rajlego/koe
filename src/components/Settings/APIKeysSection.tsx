@@ -25,6 +25,12 @@ const API_KEYS: APIKeyConfig[] = [
     docsUrl: 'https://platform.openai.com/api-keys',
   },
   {
+    id: 'groq',
+    label: 'Groq',
+    description: 'Fast Whisper transcription (recommended for low latency)',
+    docsUrl: 'https://console.groq.com/keys',
+  },
+  {
     id: 'elevenLabs',
     label: 'ElevenLabs',
     description: 'For AI character voices (text-to-speech)',
@@ -57,8 +63,13 @@ const IMAGE_PROVIDERS = [
   { id: 'replicate' as const, label: 'Replicate', keyRequired: 'replicate' as const },
 ];
 
+const TRANSCRIPTION_PROVIDERS = [
+  { id: 'groq' as const, label: 'Groq (Fastest)', keyRequired: 'groq' as const, models: ['whisper-large-v3-turbo', 'whisper-large-v3', 'distil-whisper-large-v3-en'] },
+  { id: 'openai' as const, label: 'OpenAI Whisper', keyRequired: 'openai' as const, models: ['whisper-1'] },
+];
+
 export default function APIKeysSection() {
-  const { apiKeys, setApiKey, clearApiKey, imageProvider, setImageProvider } = useSettingsStore();
+  const { apiKeys, setApiKey, clearApiKey, imageProvider, setImageProvider, transcriptionProvider, setTranscriptionProvider, transcriptionModel, setTranscriptionModel } = useSettingsStore();
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
 
@@ -182,6 +193,63 @@ export default function APIKeysSection() {
             );
           })}
         </div>
+      </section>
+
+      {/* Transcription Provider */}
+      <section className="settings-section">
+        <h3>Transcription</h3>
+        <p className="section-description">
+          Choose which provider for voice-to-text. Groq is significantly faster.
+        </p>
+
+        <div className="provider-selector">
+          {TRANSCRIPTION_PROVIDERS.map((provider) => {
+            const hasKey = isKeyConfigured(provider.keyRequired);
+            return (
+              <label
+                key={provider.id}
+                className={`provider-option ${transcriptionProvider === provider.id ? 'active' : ''} ${!hasKey ? 'disabled' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="transcriptionProvider"
+                  value={provider.id}
+                  checked={transcriptionProvider === provider.id}
+                  onChange={() => {
+                    setTranscriptionProvider(provider.id);
+                    // Auto-select first model for the provider
+                    setTranscriptionModel(provider.models[0]);
+                  }}
+                  disabled={!hasKey}
+                />
+                <span className="provider-label">{provider.label}</span>
+                {!hasKey && <span className="provider-hint">Needs API key</span>}
+              </label>
+            );
+          })}
+        </div>
+
+        {/* Model selector for current provider */}
+        {(() => {
+          const currentProvider = TRANSCRIPTION_PROVIDERS.find(p => p.id === transcriptionProvider);
+          if (!currentProvider || currentProvider.models.length <= 1) return null;
+          return (
+            <div className="setting-row" style={{ marginTop: '8px' }}>
+              <label className="model-select-label">
+                <span>Model</span>
+                <select
+                  value={transcriptionModel || currentProvider.models[0]}
+                  onChange={(e) => setTranscriptionModel(e.target.value)}
+                  className="model-select"
+                >
+                  {currentProvider.models.map((model) => (
+                    <option key={model} value={model}>{model}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          );
+        })()}
       </section>
 
       {/* Image Generation Provider */}

@@ -13,6 +13,10 @@ interface SettingsState {
   ttsEnabled: boolean;
   audioInputDevice: string | null;
 
+  // Transcription
+  transcriptionProvider: 'openai' | 'groq';
+  transcriptionModel: string;
+
   // ElevenLabs TTS
   elevenLabsVoiceId: string | null;
   elevenLabsStreaming: boolean;
@@ -28,6 +32,7 @@ interface SettingsState {
   apiKeys: {
     anthropic: string;
     openai: string;
+    groq: string;
     elevenLabs: string;
     fal: string;
     stability: string;
@@ -57,6 +62,8 @@ interface SettingsState {
   removeCustomPosition: (name: string) => void;
   setApiKey: (provider: keyof SettingsState['apiKeys'], key: string) => void;
   clearApiKey: (provider: keyof SettingsState['apiKeys']) => void;
+  setTranscriptionProvider: (provider: SettingsState['transcriptionProvider']) => void;
+  setTranscriptionModel: (model: string) => void;
   setImageProvider: (provider: SettingsState['imageProvider']) => void;
   setSetupCompleted: (completed: boolean) => void;
   setApiCostLimit: (limit: number) => void;
@@ -71,6 +78,8 @@ export const useSettingsStore = create<SettingsState>()(
       voiceEnabled: true,
       ttsEnabled: false,
       audioInputDevice: null,
+      transcriptionProvider: 'openai',
+      transcriptionModel: '',
       elevenLabsVoiceId: null,
       elevenLabsStreaming: true,
       soundsEnabled: true,
@@ -79,6 +88,7 @@ export const useSettingsStore = create<SettingsState>()(
       apiKeys: {
         anthropic: '',
         openai: '',
+        groq: '',
         elevenLabs: '',
         fal: '',
         stability: '',
@@ -122,6 +132,8 @@ export const useSettingsStore = create<SettingsState>()(
           apiKeys: { ...state.apiKeys, [provider]: '' },
         })),
 
+      setTranscriptionProvider: (provider) => set({ transcriptionProvider: provider }),
+      setTranscriptionModel: (model) => set({ transcriptionModel: model }),
       setImageProvider: (provider) => set({ imageProvider: provider }),
 
       setSetupCompleted: (completed) => set({ setupCompleted: completed }),
@@ -144,6 +156,7 @@ export function getApiKey(provider: keyof SettingsState['apiKeys']): string {
   const envMap: Record<keyof SettingsState['apiKeys'], string> = {
     anthropic: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
     openai: import.meta.env.VITE_OPENAI_API_KEY || '',
+    groq: import.meta.env.VITE_GROQ_API_KEY || '',
     elevenLabs: import.meta.env.VITE_ELEVENLABS_API_KEY || '',
     fal: import.meta.env.VITE_FAL_API_KEY || '',
     stability: import.meta.env.VITE_STABILITY_API_KEY || '',
