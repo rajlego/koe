@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useEffect, useState, useCallback, lazy, Suspense } from 'react';
 import { useVoice } from '../../hooks/useVoice';
 import { useKeyboard } from '../../hooks/useKeyboard';
 import { useLLM } from '../../services/llm';
@@ -6,10 +6,7 @@ import { getAllThoughts, onThoughtsChange } from '../../sync';
 import { useSettingsStore, getApiKey } from '../../store/settingsStore';
 import { useWindowStore } from '../../store/windowStore';
 import type { Thought } from '../../models/types';
-import VoiceIndicator from '../common/VoiceIndicator';
-import TranscriptDisplay from '../common/TranscriptDisplay';
 import ThoughtList from '../common/ThoughtList';
-import SearchBar from '../common/SearchBar';
 import './ControlSurface.css';
 
 // Lazy load modals/overlays
@@ -20,17 +17,16 @@ const ConversationView = lazy(() => import('../ConversationView/ConversationView
 const SetupWizard = lazy(() => import('../SetupWizard'));
 
 export default function ControlSurface() {
-  const { voiceState, lastTranscript, lastError, isListening, isProcessing, isDictating, dictationTargetWindowId, startListening, stopListening, clearError, debugState } = useVoice();
+  const { voiceState, lastTranscript, accumulatedTranscript, lastError, isListening, isDictating, dictationTargetWindowId, startListening, stopListening, clearError, clearTranscript, debugState } = useVoice();
   const { processTranscript, isProcessing: llmProcessing, lastResponse, streamingText } = useLLM();
   const { setupCompleted, setSetupCompleted } = useSettingsStore();
   const [showHelp, setShowHelp] = useState(false);
   const [thoughts, setThoughts] = useState<Thought[]>([]);
-  const [recentActions, setRecentActions] = useState<string[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showCharacters, setShowCharacters] = useState(false);
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [showDebug, setShowDebug] = useState(false);
 
   // Show setup wizard if not completed and no Anthropic key
   const showSetupWizard = !setupCompleted && !getApiKey('anthropic');
@@ -38,22 +34,6 @@ export default function ControlSurface() {
   const handleSetupComplete = useCallback(() => {
     setSetupCompleted(true);
   }, [setSetupCompleted]);
-
-  // Filter thoughts based on search query (searches content, type, and tags)
-  const filteredThoughts = useMemo(() => {
-    if (!searchQuery.trim()) return thoughts;
-    const query = searchQuery.toLowerCase();
-    return thoughts.filter(
-      (t) =>
-        t.content.toLowerCase().includes(query) ||
-        t.type.toLowerCase().includes(query) ||
-        (t.tags && t.tags.some((tag) => tag.toLowerCase().includes(query)))
-    );
-  }, [thoughts, searchQuery]);
-
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query);
-  }, []);
 
   const handleSelectCharacter = useCallback((characterId: string) => {
     setActiveCharacterId(characterId);
@@ -69,6 +49,14 @@ export default function ControlSurface() {
     }
   }, [voiceState, startListening, stopListening]);
 
+  // Manual send: user explicitly sends accumulated transcript to LLM
+  const handleSend = useCallback(() => {
+    if (!accumulatedTranscript.trim() || llmProcessing) return;
+    if (isListening) stopListening();
+    processTranscript(accumulatedTranscript);
+    clearTranscript();
+  }, [accumulatedTranscript, llmProcessing, isListening, stopListening, processTranscript, clearTranscript]);
+
   // Keyboard shortcuts
   useKeyboard({
     onOpenSettings: () => setShowSettings(true),
@@ -79,6 +67,13 @@ export default function ControlSurface() {
   // Additional keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Enter: Send accumulated transcript to LLM
+      if (e.key === 'Enter' && !e.metaKey && !e.shiftKey && !e.altKey) {
+        if (accumulatedTranscript.trim() && !llmProcessing) {
+          e.preventDefault();
+          handleSend();
+        }
+      }
       // Cmd+K: Characters
       if (e.metaKey && e.key === 'k') {
         e.preventDefault();
@@ -89,10 +84,15 @@ export default function ControlSurface() {
         e.preventDefault();
         setShowHelp(prev => !prev);
       }
+      // Cmd+D: Toggle debug panel
+      if (e.metaKey && e.key === 'd') {
+        e.preventDefault();
+        setShowDebug(prev => !prev);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [accumulatedTranscript, llmProcessing, handleSend]);
 
   // Listen for open-settings custom event (from other components)
   useEffect(() => {
@@ -107,22 +107,6 @@ export default function ControlSurface() {
     const unsubscribe = onThoughtsChange(setThoughts);
     return unsubscribe;
   }, []);
-
-  // Process transcript when voice processing completes
-  useEffect(() => {
-    console.log('[ControlSurface] Voice state changed:', { voiceState, hasTranscript: !!lastTranscript, llmProcessing });
-    if (voiceState === 'processing' && lastTranscript && !llmProcessing) {
-      console.log('[ControlSurface] Processing transcript with LLM:', lastTranscript.slice(0, 50));
-      processTranscript(lastTranscript);
-    }
-  }, [voiceState, lastTranscript, processTranscript, llmProcessing]);
-
-  // Track recent actions
-  useEffect(() => {
-    if (lastResponse) {
-      setRecentActions((prev) => [lastResponse, ...prev].slice(0, 5));
-    }
-  }, [lastResponse]);
 
   // If a character is active, show conversation view
   if (activeCharacterId) {
@@ -239,29 +223,32 @@ export default function ControlSurface() {
         </div>
       )}
 
-      {/* Debug Panel */}
-      <div style={{
-        background: '#1a1a2e',
-        padding: '10px 12px',
-        fontSize: '11px',
-        fontFamily: 'monospace',
-        color: '#aaa',
-        borderBottom: '1px solid #333',
-        lineHeight: '1.6',
-      }}>
-        <div>
-          <strong style={{ color: '#06d6a0' }}>DEBUG PANEL</strong>
+      {/* Debug Panel - collapsible (Cmd+D) */}
+      {showDebug && (
+        <div style={{
+          background: '#1a1a2e',
+          padding: '10px 12px',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          color: '#aaa',
+          borderBottom: '1px solid #333',
+          lineHeight: '1.6',
+        }}>
+          <div>
+            <strong style={{ color: '#06d6a0' }}>DEBUG PANEL</strong>
+            <span style={{ color: '#666', marginLeft: 8 }}>(Cmd+D to hide)</span>
+          </div>
+          <div>Listener: {debugState?.listenerAttached ? '✅ Attached' : '❌ Not attached'}</div>
+          <div>Events received: {debugState?.eventsReceived || 0}</div>
+          <div>Last event: {debugState?.lastEventTime || 'none'}</div>
+          <div>Last text: {debugState?.lastEventText || '(none)'}</div>
+          <div>Store transcript: {lastTranscript ? `"${lastTranscript.slice(0, 40)}..."` : '(empty)'}</div>
+          <div>Voice mode: {isDictating ? '🎤 DICTATE' : '⚡ COMMAND'}</div>
+          {debugState?.errors?.length > 0 && (
+            <div style={{ color: '#f66' }}>Errors: {debugState.errors.join(', ')}</div>
+          )}
         </div>
-        <div>Listener: {debugState?.listenerAttached ? '✅ Attached' : '❌ Not attached'}</div>
-        <div>Events received: {debugState?.eventsReceived || 0}</div>
-        <div>Last event: {debugState?.lastEventTime || 'none'}</div>
-        <div>Last text: {debugState?.lastEventText || '(none)'}</div>
-        <div>Store transcript: {lastTranscript ? `"${lastTranscript.slice(0, 40)}..."` : '(empty)'}</div>
-        <div>Voice mode: {isDictating ? '🎤 DICTATE' : '⚡ COMMAND'}</div>
-        {debugState?.errors?.length > 0 && (
-          <div style={{ color: '#f66' }}>Errors: {debugState.errors.join(', ')}</div>
-        )}
-      </div>
+      )}
 
       {/* Error Banner */}
       {lastError && (
@@ -274,62 +261,73 @@ export default function ControlSurface() {
         </div>
       )}
 
-      {/* Prominent Voice Button */}
-      <div className="voice-control-section">
-        <button
-          className={`voice-button ${voiceState === 'listening' ? 'listening' : ''} ${voiceState === 'processing' ? 'processing' : ''}`}
-          onClick={toggleVoice}
-        >
-          <MicrophoneIcon />
-          <span className="voice-button-label">
-            {voiceState === 'listening' ? 'Listening... (Esc to stop)' :
-             voiceState === 'processing' ? 'Processing...' :
-             'Click to speak (or press Esc)'}
-          </span>
-        </button>
-        <VoiceIndicator state={voiceState} size="small" />
-      </div>
-
+      {/* Main content: transcript hero area */}
       <main className="control-main">
-        <section className="transcript-section">
-          <TranscriptDisplay
-            transcript={lastTranscript}
-            streamingResponse={streamingText}
-            isListening={isListening}
-            isProcessing={isProcessing || llmProcessing}
-          />
+        <section className="transcript-hero">
+          {accumulatedTranscript ? (
+            <div className="transcript-text">{accumulatedTranscript}</div>
+          ) : streamingText ? (
+            <div className="transcript-text streaming">{streamingText}</div>
+          ) : lastResponse ? (
+            <div className="transcript-response">{lastResponse}</div>
+          ) : (
+            <div className="transcript-placeholder">
+              {isListening ? 'Listening... just speak.' : 'Press Esc to start speaking.'}
+            </div>
+          )}
         </section>
 
-        <section className="thoughts-section">
-          <div className="thoughts-header">
-            <h2 className="section-title">Thoughts</h2>
-            <span className="thought-count">
-              {filteredThoughts.length}{searchQuery && ` / ${thoughts.length}`}
-            </span>
-          </div>
-          <SearchBar onSearch={handleSearch} placeholder="Search thoughts..." />
-          <ThoughtList thoughts={filteredThoughts} />
-        </section>
+        {/* Voice + Send controls */}
+        <div className="voice-send-bar">
+          <button
+            className={`voice-toggle ${isListening ? 'listening' : ''}`}
+            onClick={toggleVoice}
+            aria-label={isListening ? 'Stop listening' : 'Start listening'}
+          >
+            <MicrophoneIcon />
+            <span>{isListening ? 'Listening' : 'Speak'}</span>
+          </button>
 
-        <section className="actions-section">
-          <h2 className="section-title">Recent</h2>
-          <ul className="actions-list">
-            {recentActions.map((action, i) => (
-              <li key={i} className="action-item">{action}</li>
-            ))}
-            {recentActions.length === 0 && (
-              <li className="action-item muted">No recent actions</li>
-            )}
-          </ul>
-        </section>
+          {accumulatedTranscript.trim() && (
+            <>
+              <button
+                className="send-btn"
+                onClick={handleSend}
+                disabled={llmProcessing}
+                aria-label="Send to Koe"
+              >
+                Send
+                <kbd>↵</kbd>
+              </button>
+              <button
+                className="clear-btn"
+                onClick={clearTranscript}
+                aria-label="Clear transcript"
+                title="Clear"
+              >
+                ×
+              </button>
+            </>
+          )}
+
+          {llmProcessing && <span className="processing-indicator">Processing...</span>}
+        </div>
+
+        {/* Thoughts - compact */}
+        {thoughts.length > 0 && (
+          <section className="thoughts-section">
+            <div className="thoughts-header">
+              <h2 className="section-title">Thoughts</h2>
+              <span className="thought-count">{thoughts.length}</span>
+            </div>
+            <ThoughtList thoughts={thoughts} />
+          </section>
+        )}
       </main>
 
       <footer className="control-footer">
-        <span className="status-hint">
-          {isListening ? 'Listening...' : isProcessing ? 'Processing...' : 'Ready'}
-        </span>
         <span className="keyboard-hint">
-          <kbd>Cmd+/</kbd> all shortcuts &middot; <kbd>Cmd+K</kbd> characters
+          <kbd>Esc</kbd> speak &middot; <kbd>Enter</kbd> send &middot; <kbd>Cmd+/</kbd> help
         </span>
       </footer>
     </div>

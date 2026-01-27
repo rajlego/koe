@@ -50,6 +50,8 @@ export function useVoice() {
   const voiceEnabled = useSettingsStore((s) => s.voiceEnabled);
   const audioInputDevice = useSettingsStore((s) => s.audioInputDevice);
   const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const transcriptionProvider = useSettingsStore((s) => s.transcriptionProvider);
+  const transcriptionModel = useSettingsStore((s) => s.transcriptionModel);
   const {
     setVoiceState,
     setLastTranscript,
@@ -62,6 +64,9 @@ export function useVoice() {
     dictationTargetWindowId,
   } = useWindowStore();
 
+  // Accumulated transcript - builds up as user speaks
+  const [accumulatedTranscript, setAccumulatedTranscript] = useState('');
+
   // Debug state for visible logging
   const [debugState, setDebugState] = useState<DebugState>({
     listenerAttached: false,
@@ -72,20 +77,27 @@ export function useVoice() {
   });
   const eventsReceivedRef = useRef(0);
 
-  // Configure Whisper with OpenAI API key from settings
-  // Re-runs when API keys change (e.g., after setup wizard or settings update)
+  // Configure Whisper with API keys and provider settings
+  // Re-runs when API keys or transcription settings change
   useEffect(() => {
     const openaiKey = getApiKey('openai');
-    console.log('Configuring Whisper with API key:', openaiKey ? 'present' : 'not set');
+    const groqKey = getApiKey('groq');
+    console.log('Configuring Whisper: provider=%s, model=%s, openai=%s, groq=%s',
+      transcriptionProvider, transcriptionModel || '(default)',
+      openaiKey ? 'present' : 'not set',
+      groqKey ? 'present' : 'not set');
 
     invoke('configure_whisper', {
       apiKey: openaiKey || null,
       useLocal: false,
       modelPath: null,
+      provider: transcriptionProvider,
+      model: transcriptionModel || null,
+      groqApiKey: groqKey || null,
     }).catch((err) => {
       console.error('Failed to configure Whisper:', err);
     });
-  }, [apiKeys]); // Re-run when API keys change
+  }, [apiKeys, transcriptionProvider, transcriptionModel]);
 
   // Sync audio device setting to backend when it changes
   useEffect(() => {
@@ -194,12 +206,13 @@ export function useVoice() {
               return;
             }
 
-            // Command mode: normal processing
+            // Command mode: accumulate transcript (don't auto-send to LLM)
             setLastTranscript(text);
 
             if (isFinal) {
-              sounds.processingStart();
-              setVoiceState('processing');
+              // Append to running transcript instead of triggering LLM
+              setAccumulatedTranscript(prev => prev + (prev ? ' ' : '') + text);
+              // Stay in listening state - user will explicitly send when ready
             }
           }
         });
@@ -269,18 +282,26 @@ export function useVoice() {
     }
   }, [setLastError, setVoiceState, voiceState]);
 
+  // Clear accumulated transcript
+  const clearTranscript = useCallback(() => {
+    setAccumulatedTranscript('');
+    setLastTranscript('');
+  }, [setLastTranscript]);
+
   return {
     voiceState,
     lastTranscript,
+    accumulatedTranscript,
     lastError,
     voiceMode,
     dictationTargetWindowId,
     startListening,
     stopListening,
     clearError,
+    clearTranscript,
     isListening: voiceState === 'listening',
     isProcessing: voiceState === 'processing',
     isDictating: voiceMode === 'dictate',
-    debugState, // Expose debug state for visible debugging
+    debugState,
   };
 }

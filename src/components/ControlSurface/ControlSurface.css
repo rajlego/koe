@@ -65,13 +65,148 @@
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.transcript-section {
-  min-height: 80px;
+/* Transcript Hero Area */
+.transcript-hero {
+  flex: 1;
+  min-height: 120px;
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  overflow-y: auto;
 }
 
+.transcript-text {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.transcript-text.streaming {
+  color: var(--accent-color);
+}
+
+.transcript-response {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.transcript-placeholder {
+  font-size: 16px;
+  color: var(--text-muted);
+  align-self: center;
+  text-align: center;
+  width: 100%;
+  padding: 40px 0;
+}
+
+/* Voice + Send Bar */
+.voice-send-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.voice-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.voice-toggle:hover {
+  background: var(--bg-highlight);
+  color: var(--text-primary);
+}
+
+.voice-toggle.listening {
+  background: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--bg-primary);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.voice-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.send-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--bg-primary);
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.send-btn:hover {
+  filter: brightness(1.1);
+}
+
+.send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.send-btn kbd {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 11px;
+}
+
+.clear-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 16px;
+  transition: all 0.15s ease;
+}
+
+.clear-btn:hover {
+  color: #ff6666;
+  border-color: #ff6666;
+}
+
+.processing-indicator {
+  font-size: 12px;
+  color: var(--accent-color);
+  margin-left: auto;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Sections */
 .section-title {
   font-size: 11px;
   font-weight: 500;
@@ -82,11 +217,12 @@
 }
 
 .thoughts-section {
-  flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
 }
 
 .thoughts-header {
@@ -104,43 +240,15 @@
   color: var(--text-muted);
 }
 
-.actions-section {
-  max-height: 120px;
-}
-
-.actions-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.action-item {
-  font-size: 12px;
-  color: var(--text-secondary);
-  padding: 4px 8px;
-  background: var(--bg-tertiary);
-  border-radius: 4px;
-}
-
-.action-item.muted {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
 .control-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding: 8px 16px;
   border-top: 1px solid var(--border-color);
   background: var(--bg-secondary);
   font-size: 11px;
   color: var(--text-muted);
-}
-
-.status-hint {
-  color: var(--text-secondary);
 }
 
 .keyboard-hint kbd {
@@ -271,58 +379,7 @@
   font-size: 13px;
 }
 
-/* Prominent Voice Button Section */
-.voice-control-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.voice-button {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 16px 24px;
-  background: var(--bg-tertiary);
-  border: 2px solid var(--border-color);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: var(--text-secondary);
-}
-
-.voice-button:hover {
-  background: var(--bg-highlight);
-  border-color: var(--accent-color);
-  color: var(--text-primary);
-}
-
-.voice-button.listening {
-  background: var(--accent-color);
-  border-color: var(--accent-color);
-  color: var(--bg-primary);
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.voice-button.processing {
-  background: var(--bg-highlight);
-  border-color: var(--text-muted);
-  color: var(--text-primary);
-}
-
-.voice-button svg {
-  flex-shrink: 0;
-}
-
-.voice-button-label {
-  font-size: 14px;
-  font-weight: 500;
-}
+/* Legacy voice button styles (kept for other components) */
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
