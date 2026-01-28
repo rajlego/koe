@@ -23,10 +23,10 @@ pub fn is_talon_installed() -> bool {
 /// * `code` - Python code to execute in the Talon REPL
 ///
 /// # Examples
-/// ```
-/// execute_talon("actions.key('cmd-s')") // Send Cmd+S
-/// execute_talon("actions.insert('hello')") // Type 'hello'
-/// execute_talon("actions.mimic('focus chrome')") // Run voice command
+/// ```ignore
+/// execute_talon("actions.key('cmd-s')"); // Send Cmd+S
+/// execute_talon("actions.insert('hello')"); // Type 'hello'
+/// execute_talon("actions.mimic('focus chrome')"); // Run voice command
 /// ```
 pub fn execute_talon(code: &str) -> Result<String, String> {
     let repl_path = get_talon_repl_path()
