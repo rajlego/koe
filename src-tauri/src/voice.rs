@@ -559,4 +559,33 @@ mod tests {
         assert_eq!(config.model, "whisper-large-v3-turbo");
         assert_eq!(config.groq_api_key, Some("groq-key".to_string()));
     }
+
+    /// Integration test: sends a short audio clip to Groq Whisper API.
+    /// Run with: cargo test test_groq_api_live -- --ignored
+    /// Requires GROQ_API_KEY env var.
+    #[test]
+    #[ignore]
+    fn test_groq_api_live() {
+        let api_key = std::env::var("GROQ_API_KEY")
+            .expect("Set GROQ_API_KEY env var to run this test");
+
+        // Generate 1 second of 440Hz sine wave at 16kHz
+        let sample_rate = 16000u32;
+        let duration_samples = sample_rate as usize;
+        let samples: Vec<f32> = (0..duration_samples)
+            .map(|i| (2.0 * std::f32::consts::PI * 440.0 * i as f32 / sample_rate as f32).sin() * 0.5)
+            .collect();
+
+        let result = transcribe_groq(&samples, sample_rate, &api_key, "whisper-large-v3-turbo");
+
+        match result {
+            Ok(transcript) => {
+                println!("Groq response: {:?}", transcript);
+                // Success — API returned something (transcript may be None for a tone)
+            }
+            Err(e) => {
+                panic!("Groq API call failed: {}", e);
+            }
+        }
+    }
 }
