@@ -142,6 +142,16 @@ VITE_FIREBASE_APP_ID=
 3. **YJS for data**: All thoughts and window states stored in YJS CRDTs
 4. **Zustand for UI**: Ephemeral UI state (voice state, active selections) in Zustand
 
+## Workflow Rules
+
+1. **Commit and push after every major change** — Don't let work pile up. Commit each feature/fix as it's completed and push immediately.
+2. **Reinstall the app after changes** — After modifying Rust or frontend code, rebuild and reinstall:
+   ```bash
+   npm run tauri build
+   cp -r src-tauri/target/release/bundle/macos/Koe.app /Applications/
+   ```
+3. **Run tests before committing** — `cargo test` for Rust, `npx tsc --noEmit` for TypeScript. Integration tests (e.g. API tests) use `-- --ignored` flag.
+
 ## Next Steps / TODOs
 
 1. **Improve VAD** - Current voice activity detection is basic (RMS threshold). Consider WebRTC VAD or silero-vad.
