@@ -15,8 +15,120 @@ import { sounds } from './sounds';
 import { getApiKey, useSettingsStore } from '../store/settingsStore';
 import type { Thought, PositionPreset } from '../models/types';
 
-// Get Anthropic API key from store (with env fallback)
-const getAnthropicKey = () => getApiKey('anthropic');
+// Get LLM API configuration (OpenRouter preferred, Anthropic fallback)
+function getLLMConfig(): { endpoint: string; headers: Record<string, string>; model: string; provider: 'openrouter' | 'anthropic' } | null {
+  const openrouterKey = getApiKey('openrouter');
+  const anthropicKey = getApiKey('anthropic');
+
+  if (openrouterKey) {
+    return {
+      endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openrouterKey}`,
+        'HTTP-Referer': 'https://koe.app',
+        'X-Title': 'Koe Voice Assistant',
+      },
+      model: 'anthropic/claude-sonnet-4',
+      provider: 'openrouter',
+    };
+  }
+
+  if (anthropicKey) {
+    return {
+      endpoint: 'https://api.anthropic.com/v1/messages',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      model: 'claude-sonnet-4-20250514',
+      provider: 'anthropic',
+    };
+  }
+
+  return null;
+}
+
+// Legacy helper for backward compatibility
+const getAnthropicKey = () => getApiKey('anthropic') || getApiKey('openrouter');
+
+// Helper to build request body for the configured provider
+function buildRequestBody(
+  config: ReturnType<typeof getLLMConfig>,
+  messages: Array<{ role: string; content: string }>,
+  options: { maxTokens?: number; stream?: boolean; tools?: unknown[]; system?: string }
+): string {
+  if (!config) return '';
+
+  if (config.provider === 'openrouter') {
+    // OpenAI-compatible format
+    const systemMessage = options.system ? [{ role: 'system', content: options.system }] : [];
+    return JSON.stringify({
+      model: config.model,
+      max_tokens: options.maxTokens || 1024,
+      stream: options.stream || false,
+      messages: [...systemMessage, ...messages],
+      ...(options.tools ? { tools: convertToolsToOpenAI(options.tools) } : {}),
+    });
+  } else {
+    // Anthropic native format
+    return JSON.stringify({
+      model: config.model,
+      max_tokens: options.maxTokens || 1024,
+      stream: options.stream || false,
+      messages,
+      ...(options.system ? { system: options.system } : {}),
+      ...(options.tools ? { tools: options.tools } : {}),
+    });
+  }
+}
+
+// Convert Anthropic tools format to OpenAI format
+function convertToolsToOpenAI(anthropicTools: unknown[]): unknown[] {
+  return (anthropicTools as Array<{ name: string; description: string; input_schema: unknown }>).map(tool => ({
+    type: 'function',
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.input_schema,
+    },
+  }));
+}
+
+// Parse response based on provider
+function parseResponse(
+  config: ReturnType<typeof getLLMConfig>,
+  data: unknown
+): { text: string; toolCalls: Array<{ name: string; input: Record<string, unknown> }> } {
+  if (!config) return { text: '', toolCalls: [] };
+
+  if (config.provider === 'openrouter') {
+    const openaiData = data as { choices: Array<{ message: { content?: string; tool_calls?: Array<{ function: { name: string; arguments: string } }> } }> };
+    const message = openaiData.choices?.[0]?.message;
+    return {
+      text: message?.content || '',
+      toolCalls: (message?.tool_calls || []).map(tc => ({
+        name: tc.function.name,
+        input: JSON.parse(tc.function.arguments),
+      })),
+    };
+  } else {
+    const anthropicData = data as { content: Array<{ type: string; text?: string; name?: string; input?: Record<string, unknown> }> };
+    let text = '';
+    const toolCalls: Array<{ name: string; input: Record<string, unknown> }> = [];
+
+    for (const block of anthropicData.content || []) {
+      if (block.type === 'text') {
+        text += block.text || '';
+      } else if (block.type === 'tool_use' && block.name && block.input) {
+        toolCalls.push({ name: block.name, input: block.input });
+      }
+    }
+    return { text, toolCalls };
+  }
+}
 
 // ============================================
 // API Cost Protection: Rate Limiting & Tracking
@@ -611,30 +723,23 @@ async function transformContent(
   instruction: string,
   maxTokens = 512
 ): Promise<string> {
-  const apiKey = getAnthropicKey();
-  if (!apiKey) {
+  const config = getLLMConfig();
+  if (!config) {
     return content;
   }
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
+    const messages = [
+      {
+        role: 'user',
+        content: `${instruction}\n\nContent:\n${content}\n\nReturn ONLY the transformed text, nothing else.`,
       },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: maxTokens,
-        messages: [
-          {
-            role: 'user',
-            content: `${instruction}\n\nContent:\n${content}\n\nReturn ONLY the transformed text, nothing else.`,
-          },
-        ],
-      }),
+    ];
+
+    const response = await fetch(config.endpoint, {
+      method: 'POST',
+      headers: config.headers,
+      body: buildRequestBody(config, messages, { maxTokens }),
     });
 
     if (!response.ok) {
@@ -642,7 +747,8 @@ async function transformContent(
     }
 
     const data = await response.json();
-    return data.content[0]?.text || content;
+    const parsed = parseResponse(config, data);
+    return parsed.text || content;
   } catch (error) {
     console.error('Transform error:', error);
     return content;
@@ -657,22 +763,45 @@ async function streamResponse(
   onStream: StreamCallback,
   signal: AbortSignal
 ): Promise<{ text: string; toolUse: Array<{ name: string; input: Record<string, unknown> }> }> {
-  const apiKey = getAnthropicKey();
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const config = getLLMConfig();
+  if (!config) {
+    throw new Error('No API key configured');
+  }
+
+  // OpenRouter: use non-streaming for simplicity (streaming has different format)
+  if (config.provider === 'openrouter') {
+    const response = await fetch(config.endpoint, {
+      method: 'POST',
+      headers: config.headers,
+      body: buildRequestBody(config, messages, {
+        maxTokens: 1024,
+        stream: false,
+        tools: TOOLS,
+        system: SYSTEM_PROMPT,
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const parsed = parseResponse(config, data);
+    onStream(parsed.text, true);
+    return { text: parsed.text, toolUse: parsed.toolCalls };
+  }
+
+  // Anthropic: use streaming
+  const response = await fetch(config.endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      tools: TOOLS,
+    headers: config.headers,
+    body: buildRequestBody(config, messages, {
+      maxTokens: 1024,
       stream: true,
-      messages,
+      tools: TOOLS,
+      system: SYSTEM_PROMPT,
     }),
     signal,
   });

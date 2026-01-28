@@ -31,6 +31,7 @@ interface SettingsState {
   // API Keys (stored locally, user-provided)
   apiKeys: {
     anthropic: string;
+    openrouter: string;
     openai: string;
     groq: string;
     elevenLabs: string;
@@ -87,6 +88,7 @@ export const useSettingsStore = create<SettingsState>()(
       customPositions: [],
       apiKeys: {
         anthropic: '',
+        openrouter: '',
         openai: '',
         groq: '',
         elevenLabs: '',
@@ -155,6 +157,7 @@ export function getApiKey(provider: keyof SettingsState['apiKeys']): string {
   // Fallback to environment variables
   const envMap: Record<keyof SettingsState['apiKeys'], string> = {
     anthropic: import.meta.env.VITE_ANTHROPIC_API_KEY || '',
+    openrouter: import.meta.env.VITE_OPENROUTER_API_KEY || '',
     openai: import.meta.env.VITE_OPENAI_API_KEY || '',
     groq: import.meta.env.VITE_GROQ_API_KEY || '',
     elevenLabs: import.meta.env.VITE_ELEVENLABS_API_KEY || '',

@@ -28,8 +28,8 @@ export default function ControlSurface() {
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(false);
 
-  // Show setup wizard if not completed and no Anthropic key
-  const showSetupWizard = !setupCompleted && !getApiKey('anthropic');
+  // Show setup wizard if not completed and no LLM API key (OpenRouter or Anthropic)
+  const showSetupWizard = !setupCompleted && !getApiKey('openrouter') && !getApiKey('anthropic');
 
   const handleSetupComplete = useCallback(() => {
     setSetupCompleted(true);

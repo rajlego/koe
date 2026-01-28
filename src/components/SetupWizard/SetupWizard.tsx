@@ -16,14 +16,14 @@ interface SetupStep {
 
 const SETUP_STEPS: SetupStep[] = [
   {
-    id: 'anthropic',
-    title: 'Anthropic (Claude)',
-    description: 'Powers AI conversations and the intelligent workspace management.',
+    id: 'openrouter',
+    title: 'OpenRouter (Recommended)',
+    description: 'Access to Claude and other AI models via unified API. Better pricing.',
     required: true,
-    url: 'https://console.anthropic.com/settings/keys',
-    urlLabel: 'Get Anthropic API Key',
-    placeholder: 'sk-ant-api03-...',
-    helpText: 'Create a free account, then generate an API key. You get $5 free credits to start.',
+    url: 'https://openrouter.ai/keys',
+    urlLabel: 'Get OpenRouter API Key',
+    placeholder: 'sk-or-v1-...',
+    helpText: 'Sign up free, add credits, then create an API key. Routes to Claude automatically.',
   },
   {
     id: 'fal',
@@ -46,6 +46,16 @@ const SETUP_STEPS: SetupStep[] = [
     helpText: 'Free tier includes 10,000 characters/month. Great for trying out voices.',
   },
   {
+    id: 'groq',
+    title: 'Groq (Transcription)',
+    description: 'Fast voice-to-text transcription. Free and 3x faster than OpenAI.',
+    required: false,
+    url: 'https://console.groq.com/keys',
+    urlLabel: 'Get Groq API Key',
+    placeholder: 'gsk_...',
+    helpText: 'Recommended for voice input. Free tier with generous limits.',
+  },
+  {
     id: 'openai',
     title: 'OpenAI (Optional)',
     description: 'Alternative for voice transcription (Whisper) and images (DALL-E).',
@@ -53,7 +63,7 @@ const SETUP_STEPS: SetupStep[] = [
     url: 'https://platform.openai.com/api-keys',
     urlLabel: 'Get OpenAI API Key',
     placeholder: 'sk-...',
-    helpText: 'Only needed if you prefer OpenAI over FAL.ai for images.',
+    helpText: 'Only needed if you prefer OpenAI over Groq for transcription.',
   },
 ];
 
@@ -69,7 +79,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
 
   const step = SETUP_STEPS[currentStep];
   const isLastStep = currentStep === SETUP_STEPS.length - 1;
-  const hasRequiredKeys = Boolean(getApiKey('anthropic'));
+  const hasRequiredKeys = Boolean(getApiKey('openrouter') || getApiKey('anthropic'));
 
   const handleSaveKey = useCallback(() => {
     if (keyInput.trim()) {

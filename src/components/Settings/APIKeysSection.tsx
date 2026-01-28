@@ -12,10 +12,16 @@ interface APIKeyConfig {
 
 const API_KEYS: APIKeyConfig[] = [
   {
-    id: 'anthropic',
-    label: 'Anthropic (Claude)',
-    description: 'Required for AI conversations and LLM features',
+    id: 'openrouter',
+    label: 'OpenRouter (Recommended)',
+    description: 'Access to Claude and other AI models. Better pricing.',
     required: true,
+    docsUrl: 'https://openrouter.ai/keys',
+  },
+  {
+    id: 'anthropic',
+    label: 'Anthropic (Direct)',
+    description: 'Alternative: Direct Anthropic API access',
     docsUrl: 'https://console.anthropic.com/settings/keys',
   },
   {
