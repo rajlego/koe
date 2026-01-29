@@ -106,10 +106,29 @@ export function useVoice() {
     });
   }, [audioInputDevice]);
 
+  // Auto-start voice capture on mount if voice is enabled
+  useEffect(() => {
+    if (voiceEnabled) {
+      logger.info('[Voice] Auto-starting voice capture on mount');
+      invoke('start_voice_capture').then(() => {
+        setVoiceState('listening');
+        logger.info('[Voice] Auto-start succeeded');
+      }).catch((err) => {
+        logger.info('[Voice] Auto-start failed: ' + err);
+      });
+    }
+    // Cleanup on unmount
+    return () => {
+      invoke('stop_voice_capture').catch(() => {});
+    };
+  }, []); // Only on mount
+
   // Start listening
   const startListening = useCallback(async () => {
+    logger.info(`[Voice] startListening called. voiceEnabled=${voiceEnabled}`);
     if (!voiceEnabled) {
       setLastError('Voice is disabled. Enable it in settings (Cmd+Shift+V).');
+      logger.info('[Voice] startListening aborted - voice disabled');
       return;
     }
 
@@ -117,7 +136,9 @@ export function useVoice() {
       setLastError(null); // Clear previous errors
       setVoiceState('listening');
       sounds.listeningStart();
+      logger.info('[Voice] Calling invoke start_voice_capture...');
       await invoke('start_voice_capture');
+      logger.info('[Voice] start_voice_capture succeeded');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Failed to start voice capture:', errorMessage);

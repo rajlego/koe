@@ -220,8 +220,9 @@ pub fn start_capture(app: AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                     / buffer.samples.len() as f32)
                     .sqrt();
 
-                // If there's significant audio energy, emit for transcription
-                if rms > 0.01 {
+                // Send audio for transcription if there's any meaningful signal
+                // Threshold very low (0.0001) - let Whisper filter silence
+                if rms > 0.0001 {
                     // Clone samples for processing
                     let audio_data = buffer.samples.clone();
                     let sample_rate = buffer.sample_rate;

@@ -31,6 +31,7 @@ export default function ControlSurface() {
   // Show setup wizard if not completed and no LLM API key (OpenRouter or Anthropic)
   const showSetupWizard = !setupCompleted && !getApiKey('openrouter') && !getApiKey('anthropic');
 
+
   const handleSetupComplete = useCallback(() => {
     setSetupCompleted(true);
   }, [setSetupCompleted]);
